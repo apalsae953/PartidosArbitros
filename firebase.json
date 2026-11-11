@@ -1,0 +1,21 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Mis Arbitrajes",
+        "supportEmail": "antoniopalsae@gmail.com"
+      }
+    }
+  },
+  "emulators": {
+    "singleProjectMode": true,
+    "auth": { "port": 9099 },
+    "firestore": { "port": 8080 },
+    "ui": { "enabled": true, "port": 4000 }
+  }
+}

@@ -27,7 +27,8 @@ const TIPOS = {
 
 // Convierte los patrones de vercel.json usados en este proyecto ("/(.*)", "/assets/(.*)", "/sw.js")
 function coincide(patron, ruta) {
-  const regex = new RegExp('^' + patron.replace(/[.]/g, '\\.').replace('(.*)', '.*') + '$');
+  // Primero se separa el comodín "(.*)" y después se escapan los puntos literales (como en ".mjs")
+  const regex = new RegExp('^' + patron.split('(.*)').map((parte) => parte.replace(/[.]/g, '\\.')).join('.*') + '$');
   return regex.test(ruta);
 }
 

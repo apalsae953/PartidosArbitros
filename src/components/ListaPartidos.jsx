@@ -115,6 +115,7 @@ function EstadoVacio({ onNuevo, onImportarPdf }) {
 export default function ListaPartidos({
   partidos,
   hayPartidos,
+  cargando,
   filtros,
   onCambiarFiltros,
   onQuitarFiltros,
@@ -193,7 +194,12 @@ export default function ListaPartidos({
         )}
       </div>
 
-      {!hayPartidos ? (
+      {cargando ? (
+        <div className="flex items-center justify-center gap-2 px-6 py-14 text-sm text-slate-500" role="status">
+          <Icono nombre="cargando" className="h-5 w-5 animate-spin text-emerald-600" />
+          Cargando tus partidos…
+        </div>
+      ) : !hayPartidos ? (
         <EstadoVacio onNuevo={onNuevo} onImportarPdf={onImportarPdf} />
       ) : grupos.length === 0 ? (
         <div className="px-6 py-12 text-center">

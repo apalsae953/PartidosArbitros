@@ -108,6 +108,32 @@ scripts/servir-dist.mjs    Servidor local que imita las cabeceras de Vercel
 prototipo/                 Versión inicial en un solo archivo (no se publica; se puede borrar)
 ```
 
+## Cuentas y nube (Firebase)
+
+La app funciona sin cuenta (datos solo en el dispositivo) o con cuenta (datos en Cloud Firestore, sincronizados entre
+dispositivos y disponibles sin conexión). Las cuentas usan Firebase Authentication con correo y contraseña o Google.
+
+- **Configuración**: [`src/config/firebase.js`](src/config/firebase.js). Si está vacía, la app no muestra cuentas.
+  Estos datos no son secretos; lo que protege la información son las reglas.
+- **Reglas de seguridad**: [`firestore.rules`](firestore.rules). Cada usuario solo puede leer y escribir
+  `usuarios/{su-id}/partidos/*`, y solo con datos válidos.
+- **Proyecto**: [`firebase.json`](firebase.json) y `.firebaserc`. Para publicar cambios en las reglas o en los métodos
+  de acceso: `npm run desplegar:firebase` (requiere `npx firebase login`).
+
+### Probar en local con los emuladores
+
+No toca el proyecto real ni crea cuentas de verdad. Requiere Java 11 o superior.
+
+```bash
+npm run emuladores        # emuladores de cuentas y base de datos (panel en http://localhost:4000)
+npm run dev:emuladores    # la app conectada a los emuladores
+npm run test:reglas       # tests de las reglas de seguridad
+```
+
+En los emuladores sirve cualquier correo inventado (por ejemplo `prueba@ejemplo.test`) y la contraseña que quieras.
+En Windows, si al terminar `npm run test:reglas` el puerto 8080 queda ocupado por un proceso `java`, ciérralo desde el
+Administrador de tareas antes de volver a lanzar los emuladores.
+
 ## Lector de PDF
 
 El lector de designaciones está en [`src/lib/designacionRfaf.js`](src/lib/designacionRfaf.js) y sus tests en

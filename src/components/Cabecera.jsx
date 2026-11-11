@@ -34,6 +34,8 @@ export default function Cabecera({
   onInstalar,
   onNuevo,
   onImportarPdf,
+  cuenta,
+  onCuenta,
 }) {
   return (
     <header className="relative overflow-hidden bg-slate-950 pb-28 sm:pb-32">
@@ -81,6 +83,36 @@ export default function Cabecera({
             <Icono nombre="mas" className="h-4 w-4" />
             Nuevo partido
           </button>
+
+          {/* Cuenta: "Entrar" sin sesión, o la inicial del usuario con el estado de sincronización */}
+          {cuenta.estado === 'invitado' && (
+            <button
+              type="button"
+              onClick={onCuenta}
+              aria-label="Entrar o crear cuenta"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-slate-200 ring-1 ring-inset ring-white/15 transition-[background-color,transform] duration-150 ease-salida hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 active:scale-[0.97] sm:px-3"
+            >
+              <Icono nombre="usuario" className="h-4 w-4" />
+              <span className="hidden sm:inline">Entrar</span>
+            </button>
+          )}
+          {cuenta.estado === 'conectado' && (
+            <button
+              type="button"
+              onClick={onCuenta}
+              aria-label={`Tu cuenta: ${cuenta.email}`}
+              title={cuenta.email}
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-sm font-semibold text-white ring-2 ring-white/20 transition-transform duration-150 ease-salida focus:outline-none focus-visible:ring-emerald-300 active:scale-95"
+            >
+              {cuenta.inicial}
+              <span
+                aria-hidden="true"
+                className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-slate-950 ${
+                  cuenta.sincronizado ? 'bg-emerald-300' : 'bg-amber-400'
+                }`}
+              />
+            </button>
+          )}
         </div>
 
         <div className="mt-6 flex items-center gap-2">

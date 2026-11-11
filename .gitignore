@@ -4,3 +4,8 @@ dev-dist
 .vercel
 *.log
 .DS_Store
+# Archivos de los emuladores de Firebase
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase

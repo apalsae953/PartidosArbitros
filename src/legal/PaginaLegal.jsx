@@ -27,6 +27,11 @@ const COMPONENTES_TERCEROS = [
     licencia: 'Apache 2.0',
     copyright: 'Copyright Mozilla Foundation and contributors (https://mozilla.github.io/pdf.js/)',
   },
+  {
+    nombre: 'Firebase JavaScript SDK (cuentas y base de datos)',
+    licencia: 'Apache 2.0',
+    copyright: 'Copyright Google LLC (https://github.com/firebase/firebase-js-sdk)',
+  },
 ];
 
 const TEXTO_MIT = `Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -115,19 +120,28 @@ export default function PaginaLegal() {
           <h3>Qué es Mis Arbitrajes</h3>
           <p>
             Mis Arbitrajes es una herramienta gratuita para que los árbitros lleven un registro de sus partidos y de los
-            importes cobrados y pendientes. No requiere registro ni cuenta de usuario.
+            importes cobrados y pendientes. Se puede usar sin registrarse, guardando los datos solo en el dispositivo, o con
+            una cuenta gratuita para guardarlos en la nube y consultarlos desde varios dispositivos.
           </p>
 
           <h3>Condiciones de uso</h3>
           <ul>
             <li>La herramienta se ofrece «tal cual», de forma gratuita y sin garantías de ningún tipo.</li>
             <li>
-              Todos los datos se guardan únicamente en el dispositivo del usuario. El titular no tiene acceso a ellos y no
-              puede recuperarlos si se pierden.
+              Sin cuenta, los datos se guardan únicamente en el dispositivo del usuario: el titular no tiene acceso a ellos
+              y no puede recuperarlos si se pierden.
             </li>
             <li>
-              El usuario es el único responsable de conservar sus datos y de hacer copias de seguridad con la opción
-              «Exportar mis datos».
+              Con cuenta, los datos se guardan en la nube (Google Firebase) asociados a ella. El usuario debe custodiar su
+              contraseña y es responsable de la actividad realizada con su cuenta.
+            </li>
+            <li>
+              Cada usuario es responsable de conservar sus datos. Se recomienda hacer copias de seguridad periódicas con la
+              opción «Exportar copia de seguridad».
+            </li>
+            <li>
+              No está permitido usar la app para fines distintos de su propósito ni intentar acceder a datos de otros
+              usuarios. El titular puede eliminar cuentas que incumplan estas condiciones.
             </li>
             <li>
               Los importes y totales que muestra la app son orientativos y no sustituyen a ningún documento oficial ni a
@@ -138,9 +152,11 @@ export default function PaginaLegal() {
           <h3>Responsabilidad</h3>
           <p>
             En la medida permitida por la ley, el titular no se hace responsable de la pérdida de datos causada por el
-            borrado de los datos del navegador, fallos o cambios del dispositivo, desinstalación de la app, ni de errores
-            en la información introducida por el usuario. El titular puede modificar, interrumpir o retirar la herramienta
-            en cualquier momento.
+            borrado de los datos del navegador, fallos o cambios del dispositivo, desinstalación de la app, interrupciones
+            o fallos de los servicios en la nube, ni de errores en la información introducida por el usuario. El servicio
+            gratuito no garantiza una disponibilidad continua. El titular puede modificar, interrumpir o retirar la
+            herramienta en cualquier momento; en ese caso, intentará avisar con antelación para que los usuarios puedan
+            exportar sus datos.
           </p>
 
           <h3>Propiedad intelectual</h3>
@@ -156,10 +172,17 @@ export default function PaginaLegal() {
 
         <Seccion id="privacidad" titulo="Política de privacidad">
           <h3>Resumen</h3>
-          <p>
-            <strong>Esta app no recoge, no envía y no almacena en ningún servidor los datos de tus partidos.</strong> Todo lo
-            que registras se guarda solo en la memoria de tu navegador, en tu dispositivo, y únicamente tú tienes acceso.
-          </p>
+          <ul>
+            <li>
+              <strong>Sin cuenta</strong>, los datos de tus partidos se guardan solo en tu dispositivo y no se envían a
+              ningún servidor.
+            </li>
+            <li>
+              <strong>Con cuenta</strong>, se guardan en la base de datos de Google Firebase, en servidores de la Unión
+              Europea, asociados a tu cuenta. Solo tú puedes leerlos y modificarlos.
+            </li>
+            <li>No hay publicidad, analítica ni seguimiento, y tus datos no se venden ni se ceden a nadie.</li>
+          </ul>
 
           <h3>Responsable</h3>
           <p>
@@ -170,7 +193,12 @@ export default function PaginaLegal() {
           <ul>
             <li>
               <strong>Datos de tus partidos</strong> (fecha, hora, equipos, categoría, campo, número de designación,
-              importe y estado de cobro): se guardan solo en tu dispositivo. El titular no los recibe ni puede verlos.
+              importe y estado de cobro). Sin cuenta, se guardan solo en tu dispositivo y el titular no los recibe. Con
+              cuenta, se guardan además en la nube para que puedas verlos en todos tus dispositivos.
+            </li>
+            <li>
+              <strong>Datos de la cuenta</strong> (solo si creas una): tu correo electrónico y, si entras con Google, el
+              nombre de tu cuenta de Google. La contraseña no la conoce el titular: la gestiona Firebase de forma cifrada.
             </li>
             <li>
               <strong>PDF de designación</strong>: si importas uno, se lee dentro de tu propio navegador y no se envía ni
@@ -197,19 +225,42 @@ export default function PaginaLegal() {
             <EnlaceExterno href="https://vercel.com/legal/privacy-policy">política de privacidad</EnlaceExterno>.
           </p>
 
+          <h3>Cuentas y base de datos en la nube</h3>
+          <p>
+            Si creas una cuenta, tus datos se tratan para prestarte el servicio que pides: guardar tus partidos y
+            sincronizarlos entre tus dispositivos. La base legal es la ejecución de las condiciones de uso que aceptas al
+            registrarte (art. 6.1.b del RGPD).
+          </p>
+          <p>
+            Para ello se usan los servicios Firebase Authentication y Cloud Firestore de Google, que actúa como encargado
+            del tratamiento. Los partidos se almacenan en servidores de la Unión Europea (Madrid). Los datos de acceso
+            (correo) pueden tratarse fuera de la UE; Google está adherida al Marco de Privacidad de Datos UE-EE. UU. y
+            ofrece las cláusulas contractuales tipo de la Comisión Europea. Más información en la{' '}
+            <EnlaceExterno href="https://firebase.google.com/support/privacy">página de privacidad de Firebase</EnlaceExterno>.
+          </p>
+          <p>
+            Los datos se conservan mientras mantengas la cuenta. Puedes eliminarla tú mismo desde «Tu cuenta» › «Eliminar
+            mi cuenta y mis datos»: se borran al momento la cuenta y todos tus partidos (Google puede tardar un tiempo
+            limitado en eliminarlos de sus copias de seguridad internas).
+          </p>
+
           <h3>Lo que la app no hace</h3>
           <ul>
             <li>No usa analítica, publicidad ni herramientas de seguimiento.</li>
-            <li>No carga fuentes, scripts ni recursos de servidores de terceros: todo se sirve desde la propia web.</li>
-            <li>No pide registro, correo ni ningún dato personal para funcionar.</li>
+            <li>
+              No carga fuentes ni recursos de terceros, salvo los servicios de Google estrictamente necesarios para las
+              cuentas cuando decides usarlas.
+            </li>
+            <li>No es necesario registrarse para usarla.</li>
           </ul>
 
           <h3>Tus derechos</h3>
           <p>
-            Puedes borrar todos tus datos en cualquier momento eliminando los datos del sitio desde la configuración de tu
-            navegador o desinstalando la app. Para cualquier consulta, o para ejercer tus derechos de acceso,
-            rectificación, supresión, oposición, limitación y portabilidad, escribe a {correo}. Si consideras que no se han
-            respetado tus derechos, puedes reclamar ante la{' '}
+            Sin cuenta, puedes borrar todos tus datos eliminando los datos del sitio desde la configuración de tu navegador
+            o desinstalando la app. Con cuenta, puedes exportar tus datos («Exportar copia de seguridad») y eliminar la
+            cuenta en cualquier momento desde la propia app. Para cualquier consulta, o para ejercer tus derechos de
+            acceso, rectificación, supresión, oposición, limitación y portabilidad, escribe a {correo}. Si consideras que no
+            se han respetado tus derechos, puedes reclamar ante la{' '}
             <EnlaceExterno href="https://www.aepd.es">Agencia Española de Protección de Datos</EnlaceExterno>.
           </p>
         </Seccion>
@@ -233,11 +284,19 @@ export default function PaginaLegal() {
             </li>
           </ul>
           <p>
-            Además, guarda una copia de los archivos de la app (service worker) para que funcione sin conexión. Todo esto
-            es estrictamente necesario para prestar el servicio que solicitas, por lo que no requiere consentimiento
-            (art. 22.2 de la Ley 34/2002, LSSI). Nada de esta información sale de tu dispositivo.
+            Además, guarda una copia de los archivos de la app (service worker) para que funcione sin conexión. Si usas
+            una cuenta, Firebase guarda en el navegador (IndexedDB) tu sesión iniciada y una copia de tus partidos para
+            poder usarlos sin conexión; al cerrar sesión, esa copia se borra.
           </p>
-          <p>Puedes eliminarlo en cualquier momento borrando los datos del sitio en tu navegador. Si lo haces, perderás los partidos que no hayas exportado.</p>
+          <p>
+            Todo esto es estrictamente necesario para prestar el servicio que solicitas, por lo que no requiere
+            consentimiento (art. 22.2 de la Ley 34/2002, LSSI). Si eliges «Continuar con Google», el inicio de sesión se
+            hace en una ventana de Google, que aplica su propia política de cookies.
+          </p>
+          <p>
+            Puedes eliminarlo en cualquier momento borrando los datos del sitio en tu navegador. Si lo haces sin cuenta,
+            perderás los partidos que no hayas exportado.
+          </p>
         </Seccion>
 
         <Seccion id="licencias" titulo="Licencias de terceros">
@@ -268,7 +327,7 @@ export default function PaginaLegal() {
             .
           </p>
           <p>
-            PDF.js se distribuye bajo la licencia Apache 2.0. Puedes consultar{' '}
+            PDF.js y el SDK de Firebase se distribuyen bajo la licencia Apache 2.0. Puedes consultar{' '}
             <a href="/licencias/pdfjs-LICENSE.txt" className="font-medium text-emerald-700 underline underline-offset-2">
               su licencia completa
             </a>

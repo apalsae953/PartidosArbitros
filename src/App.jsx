@@ -3,16 +3,20 @@ import AvisoActualizacion from './components/AvisoActualizacion.jsx';
 import AvisoDatos from './components/AvisoDatos.jsx';
 import Cabecera from './components/Cabecera.jsx';
 import CopiaSeguridad from './components/CopiaSeguridad.jsx';
+import DialogoCuenta from './components/DialogoCuenta.jsx';
 import DialogoImportarPdf from './components/DialogoImportarPdf.jsx';
 import DialogoPartido from './components/DialogoPartido.jsx';
 import GraficoMensual from './components/GraficoMensual.jsx';
 import Icono from './components/Icono.jsx';
 import ListaPartidos from './components/ListaPartidos.jsx';
+import MigrarPartidos from './components/MigrarPartidos.jsx';
 import Notificacion from './components/Notificacion.jsx';
 import PanelEstadisticas from './components/PanelEstadisticas.jsx';
 import PieLegal from './components/PieLegal.jsx';
 import RecordatorioCopia, { diasSinCopia } from './components/RecordatorioCopia.jsx';
 import { usarInstalacion } from './hooks/usarInstalacion.js';
+import { usarPartidos } from './hooks/usarPartidos.js';
+import { usarSesion } from './hooks/usarSesion.js';
 import {
   avisoYaCerrado,
   cargarPartidos,
@@ -22,11 +26,11 @@ import {
   recordarAvisoCerrado,
   registrarCopia,
 } from './lib/almacenamiento.js';
-import { CLAVE_PARTIDOS, ESTADOS } from './lib/constantes.js';
+import { ESTADOS } from './lib/constantes.js';
 import { combinarPartidos, exportarJSON } from './lib/copiaSeguridad.js';
 import { esIOS as detectarIOS } from './lib/dispositivo.js';
 import { centimosATexto, generarId, ordenarPorFecha, textoPartidos } from './lib/formato.js';
-import { analizarPdfs, esPdf } from './lib/importarPdf.js';
+import { analizarPdfs, buscarDuplicado, esPdf } from './lib/importarPdf.js';
 import { leerPaginasPdf } from './lib/leerPdf.js';
 import {
   TODAS_LAS_TEMPORADAS,
@@ -49,7 +53,20 @@ function prefiereMenosMovimiento() {
 }
 
 export default function App() {
-  const [partidos, setPartidos] = useState(cargarPartidos);
+  const [aviso, setAviso] = useState(null);
+  const mostrarAviso = useCallback((datos) => setAviso({ id: generarId(), ...datos }), []);
+  const cerrarNotificacion = useCallback(() => setAviso(null), []);
+
+  // Cuenta y partidos: sin sesión se guardan en el dispositivo; con sesión, en la nube
+  const sesion = usarSesion();
+  const { partidos, cambiarPartidos, errorGuardado, nube, enNube } = usarPartidos(
+    sesion,
+    useCallback((mensaje) => mensaje && mostrarAviso({ texto: mensaje, icono: 'alerta' }), [mostrarAviso])
+  );
+  const [cuenta, setCuenta] = useState({ abierto: false, apertura: 0 });
+  // Partidos que había en el dispositivo antes de entrar en la cuenta, pendientes de subir
+  const [locales, setLocales] = useState([]);
+
   const [temporada, setTemporada] = useState(() => temporadaInicial(partidos));
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
   const [dialogo, setDialogo] = useState({ abierto: false, partido: null, base: null, apertura: 0 });
@@ -62,26 +79,22 @@ export default function App() {
   });
   const [arrastrando, setArrastrando] = useState(false);
   const refSelectorPdf = useRef(null);
-  const [aviso, setAviso] = useState(null);
   const [resaltadoId, setResaltadoId] = useState(null);
   const [avisoVisible, setAvisoVisible] = useState(() => !avisoYaCerrado());
   const [ultimaCopia, setUltimaCopia] = useState(leerUltimaCopia);
-  const [errorGuardado, setErrorGuardado] = useState(false);
   const { puedeInstalar, instalada, instalar } = usarInstalacion();
 
-  // Cada cambio se persiste en localStorage; si falla (almacenamiento lleno o bloqueado) se avisa
+  // Al terminar de cargar los partidos de la nube se elige la temporada adecuada para ellos
+  const nubeCargada = enNube && !nube.cargando;
+  const refTemporadaElegida = useRef(false);
   useEffect(() => {
-    setErrorGuardado(!guardarPartidos(partidos));
-  }, [partidos]);
-
-  // Si la app está abierta en otra pestaña, se mantienen ambas sincronizadas
-  useEffect(() => {
-    function alCambiarAlmacenamiento(evento) {
-      if (evento.key === null || evento.key === CLAVE_PARTIDOS) setPartidos(cargarPartidos());
-    }
-    window.addEventListener('storage', alCambiarAlmacenamiento);
-    return () => window.removeEventListener('storage', alCambiarAlmacenamiento);
-  }, []);
+    if (!nubeCargada || refTemporadaElegida.current) return;
+    refTemporadaElegida.current = true;
+    setTemporada(temporadaInicial(partidos));
+    setFiltros(FILTROS_INICIALES);
+    // Al entrar, se ofrece subir los partidos que había solo en este dispositivo
+    setLocales(cargarPartidos());
+  }, [nubeCargada, partidos]);
 
   // Tras añadir, editar o recuperar un partido, se lleva a la vista y se resalta un momento
   useEffect(() => {
@@ -141,8 +154,39 @@ export default function App() {
   }, [partidos]);
   const sugerirImporte = useCallback((categoria) => importeSugerido(partidos, categoria), [partidos]);
 
-  const mostrarAviso = useCallback((datos) => setAviso({ id: generarId(), ...datos }), []);
-  const cerrarNotificacion = useCallback(() => setAviso(null), []);
+  // =========================================================================
+  // Cuenta
+  // =========================================================================
+
+  function abrirCuenta() {
+    setCuenta((actual) => ({ abierto: true, apertura: actual.apertura + 1 }));
+  }
+
+  const cerrarCuenta = useCallback(() => setCuenta((actual) => ({ ...actual, abierto: false })), []);
+
+  // Al iniciar sesión se cierra la ventana de acceso
+  const refEstadoSesion = useRef(sesion.estado);
+  useEffect(() => {
+    if (refEstadoSesion.current === 'invitado' && sesion.estado === 'conectado') {
+      cerrarCuenta();
+      mostrarAviso({ texto: `Sesión iniciada como ${sesion.usuario.email}`, icono: 'nube' });
+    }
+    refEstadoSesion.current = sesion.estado;
+  }, [sesion.estado, sesion.usuario, cerrarCuenta, mostrarAviso]);
+
+  // Sube a la cuenta los partidos del dispositivo que aún no estén en ella y los quita del dispositivo
+  function subirPartidosLocales() {
+    const nuevos = locales.filter((partido) => !buscarDuplicado(partido, partidos));
+    cambiarPartidos((actuales) => combinarPartidos(actuales, nuevos, 'combinar'));
+    // Firestore guarda los cambios en el dispositivo hasta que se suben, así que ya se pueden quitar de aquí
+    guardarPartidos([]);
+    setLocales([]);
+    setTemporada(temporadaInicial([...partidos, ...nuevos]));
+    mostrarAviso({
+      texto: nuevos.length === 0 ? 'Esos partidos ya estaban en tu cuenta' : `${textoPartidos(nuevos.length)} subidos a tu cuenta`,
+      icono: 'nube',
+    });
+  }
 
   function cambiarTemporada(id) {
     setTemporada(id);
@@ -177,11 +221,11 @@ export default function App() {
     let guardado;
     if (dialogo.partido) {
       guardado = { ...dialogo.partido, ...datos };
-      setPartidos((actuales) => actuales.map((p) => (p.id === guardado.id ? guardado : p)));
+      cambiarPartidos((actuales) => actuales.map((p) => (p.id === guardado.id ? guardado : p)));
       mostrarAviso({ texto: 'Cambios guardados' });
     } else {
       guardado = { id: generarId(), creadoEn: Date.now(), ...datos };
-      setPartidos((actuales) => [...actuales, guardado]);
+      cambiarPartidos((actuales) => [...actuales, guardado]);
       mostrarAviso({ texto: 'Partido añadido' });
     }
     asegurarVisible(guardado);
@@ -231,7 +275,7 @@ export default function App() {
     const creados = nuevos.map((partido, i) =>
       limpiarOpcionales({ id: generarId(), creadoEn: ahora + i, ...partido, estado })
     );
-    setPartidos((actuales) => [...actuales, ...creados]);
+    cambiarPartidos((actuales) => [...actuales, ...creados]);
     setImportacion((actual) => ({ ...actual, abierto: false }));
     const masReciente = ordenarPorFecha(creados)[0];
     asegurarVisible(masReciente);
@@ -243,7 +287,7 @@ export default function App() {
   }
 
   function alternarEstado(id) {
-    setPartidos((actuales) =>
+    cambiarPartidos((actuales) =>
       actuales.map((partido) =>
         partido.id === id
           ? { ...partido, estado: partido.estado === ESTADOS.COBRADO ? ESTADOS.PENDIENTE : ESTADOS.COBRADO }
@@ -256,7 +300,7 @@ export default function App() {
   function eliminarPartido(id) {
     const eliminado = partidos.find((p) => p.id === id);
     if (!eliminado) return;
-    setPartidos((actuales) => actuales.filter((p) => p.id !== id));
+    cambiarPartidos((actuales) => actuales.filter((p) => p.id !== id));
     cerrarDialogo();
     mostrarAviso({
       texto: 'Partido eliminado',
@@ -264,7 +308,7 @@ export default function App() {
       accion: {
         etiqueta: 'Deshacer',
         alHacer: () => {
-          setPartidos((actuales) => (actuales.some((p) => p.id === id) ? actuales : [...actuales, eliminado]));
+          cambiarPartidos((actuales) => (actuales.some((p) => p.id === id) ? actuales : [...actuales, eliminado]));
           setResaltadoId(id);
         },
       },
@@ -273,7 +317,7 @@ export default function App() {
 
   function importarPartidos(importados, modo) {
     const resultado = combinarPartidos(partidos, importados, modo);
-    setPartidos(resultado);
+    cambiarPartidos(resultado);
     setTemporada(temporadaInicial(resultado));
     setFiltros(FILTROS_INICIALES);
   }
@@ -305,7 +349,16 @@ export default function App() {
   }
 
   const conGrafico = temporada !== TODAS_LAS_TEMPORADAS;
-  const diasRecordatorio = diasSinCopia(ultimaCopia, partidos.length);
+  // Con cuenta los datos ya están a salvo en la nube, así que no hace falta recordar las copias
+  const diasRecordatorio = enNube ? null : diasSinCopia(ultimaCopia, partidos.length);
+  // Mientras se recupera la sesión o se cargan los partidos de la nube, la lista muestra que está cargando
+  const cargandoDatos = sesion.estado === 'comprobando' || (enNube && nube.cargando);
+  const datosCuenta = {
+    estado: sesion.estado,
+    email: sesion.usuario?.email || '',
+    inicial: (sesion.usuario?.nombre || sesion.usuario?.email || '?').charAt(0).toUpperCase(),
+    sincronizado: !nube.pendientes,
+  };
 
   return (
     <>
@@ -319,6 +372,8 @@ export default function App() {
         onInstalar={instalar}
         onNuevo={() => abrirNuevo()}
         onImportarPdf={elegirPdf}
+        cuenta={datosCuenta}
+        onCuenta={abrirCuenta}
       />
 
       <main className="relative mx-auto -mt-20 max-w-6xl space-y-4 px-4 pb-28 sm:-mt-24 sm:space-y-6 sm:px-6 sm:pb-10">
@@ -330,7 +385,12 @@ export default function App() {
           </p>
         )}
 
-        {avisoVisible && (
+        {enNube && nubeCargada && locales.length > 0 && (
+          <MigrarPartidos cantidad={locales.length} onSubir={subirPartidosLocales} onDescartar={() => setLocales([])} />
+        )}
+
+        {/* Sin cuenta, los datos dependen del navegador: se avisa del riesgo */}
+        {avisoVisible && !enNube && sesion.estado !== 'comprobando' && (
           <AvisoDatos
             hayDatos={partidos.length > 0}
             instalada={instalada}
@@ -338,6 +398,7 @@ export default function App() {
             esIOS={ES_IOS}
             onInstalar={instalar}
             onExportar={exportarCopia}
+            onCrearCuenta={sesion.estado === 'invitado' ? abrirCuenta : undefined}
             onCerrar={cerrarAvisoDatos}
           />
         )}
@@ -367,6 +428,7 @@ export default function App() {
             <ListaPartidos
               partidos={partidosVisibles}
               hayPartidos={partidos.length > 0}
+              cargando={cargandoDatos}
               filtros={filtros}
               onCambiarFiltros={cambiarFiltros}
               onQuitarFiltros={() => setFiltros(FILTROS_INICIALES)}
@@ -385,6 +447,8 @@ export default function App() {
               onExportarJSON={exportarCopia}
               onImportar={importarPartidos}
               onVerAviso={verAvisoDatos}
+              cuenta={sesion.estado === 'sin-cuentas' ? null : { enNube, email: datosCuenta.email, nube }}
+              onCuenta={abrirCuenta}
             />
           </div>
         </div>
@@ -411,6 +475,18 @@ export default function App() {
         onImportarPdf={elegirPdf}
         onCerrar={cerrarDialogo}
       />
+
+      {sesion.estado !== 'sin-cuentas' && (
+        <DialogoCuenta
+          abierto={cuenta.abierto}
+          apertura={cuenta.apertura}
+          sesion={sesion}
+          nube={nube}
+          numPartidos={partidos.length}
+          onExportar={exportarCopia}
+          onCerrar={cerrarCuenta}
+        />
+      )}
 
       <DialogoImportarPdf
         importacion={importacion}

@@ -188,6 +188,27 @@ const TRAZOS_ICONOS = {
       <circle cx="12" cy="10" r="3" />
     </>
   ),
+  usuario: (
+    <>
+      <circle cx="12" cy="8" r="5" />
+      <path d="M20 21a8 8 0 0 0-16 0" />
+    </>
+  ),
+  nube: <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />,
+  nubeSubir: (
+    <>
+      <path d="M12 13v8" />
+      <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+      <path d="m8 17 4-4 4 4" />
+    </>
+  ),
+  salir: (
+    <>
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    </>
+  ),
   flechaIzquierda: (
     <>
       <path d="m12 19-7-7 7-7" />

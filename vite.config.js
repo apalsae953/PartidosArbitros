@@ -81,5 +81,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // Los tests de reglas de seguridad (pruebas/) necesitan el emulador y van aparte: npm run test:reglas
+    include: ['src/**/*.test.{js,jsx}'],
   },
 });

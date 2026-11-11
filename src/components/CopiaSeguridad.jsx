@@ -18,7 +18,7 @@ export function textoUltimaCopia(momento, ahora = Date.now()) {
   return `hace ${dias} días`;
 }
 
-export default function CopiaSeguridad({ partidos, ultimaCopia, onExportarJSON, onImportar, onVerAviso }) {
+export default function CopiaSeguridad({ partidos, ultimaCopia, onExportarJSON, onImportar, onVerAviso, cuenta, onCuenta }) {
   const hayDatos = partidos.length > 0;
   const refArchivo = useRef(null);
   // Copia leída del archivo, pendiente de que el usuario confirme cómo importarla
@@ -77,14 +77,37 @@ export default function CopiaSeguridad({ partidos, ultimaCopia, onExportarJSON, 
         </span>
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-slate-900">Tus datos</h2>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Se guardan solo en este dispositivo. Última copia:{' '}
-            <span className={`font-medium ${ultimaCopia ? 'text-slate-700' : 'text-amber-700'}`}>
-              {textoUltimaCopia(ultimaCopia)}
-            </span>
-          </p>
+          {cuenta?.enNube ? (
+            <p className="mt-0.5 text-sm text-slate-500">
+              Guardados en tu cuenta <span className="font-medium text-slate-700">{cuenta.email}</span>: los ves en
+              todos tus dispositivos.
+            </p>
+          ) : (
+            <p className="mt-0.5 text-sm text-slate-500">
+              Se guardan solo en este dispositivo. Última copia:{' '}
+              <span className={`font-medium ${ultimaCopia ? 'text-slate-700' : 'text-amber-700'}`}>
+                {textoUltimaCopia(ultimaCopia)}
+              </span>
+            </p>
+          )}
         </div>
       </div>
+
+      {/* Sin sesión: invitación a crear cuenta para no depender del navegador */}
+      {cuenta && !cuenta.enNube && (
+        <button
+          type="button"
+          onClick={onCuenta}
+          className="mt-4 flex w-full items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-left ring-1 ring-inset ring-slate-200 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+        >
+          <Icono nombre="nube" className="h-5 w-5 shrink-0 text-emerald-600" />
+          <span className="min-w-0 flex-1 text-sm">
+            <span className="block font-semibold text-slate-900">Guárdalos en la nube</span>
+            <span className="block text-xs text-slate-500">Crea una cuenta gratis y velos en el móvil y el ordenador</span>
+          </span>
+          <Icono nombre="chevronDerecha" className="h-4 w-4 shrink-0 text-slate-400" />
+        </button>
+      )}
 
       <div className="mt-4 grid gap-2">
         <button

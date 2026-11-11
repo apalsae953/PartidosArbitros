@@ -1,7 +1,16 @@
 import Icono from './Icono.jsx';
 
 // Aviso sobre dónde se guardan los datos. En iPhone añade la advertencia de los 7 días de Safari.
-export default function AvisoDatos({ hayDatos, instalada, puedeInstalar, esIOS, onInstalar, onExportar, onCerrar }) {
+export default function AvisoDatos({
+  hayDatos,
+  instalada,
+  puedeInstalar,
+  esIOS,
+  onInstalar,
+  onExportar,
+  onCrearCuenta,
+  onCerrar,
+}) {
   const riesgoSafari = esIOS && !instalada;
 
   return (
@@ -50,7 +59,24 @@ export default function AvisoDatos({ hayDatos, instalada, puedeInstalar, esIOS, 
             </p>
           )}
 
+          {onCrearCuenta && (
+            <p className="mt-2 text-sm leading-relaxed text-amber-900/90">
+              <strong className="font-semibold">La forma más segura es crear una cuenta gratis</strong>: tus partidos se
+              guardan en la nube y los ves en el móvil y en el ordenador.
+            </p>
+          )}
+
           <div className="mt-4 flex flex-wrap gap-2">
+            {onCrearCuenta && (
+              <button
+                type="button"
+                onClick={onCrearCuenta}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white transition-[background-color,transform] duration-150 ease-salida hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30 active:scale-[0.97]"
+              >
+                <Icono nombre="nube" className="h-4 w-4" />
+                Crear cuenta
+              </button>
+            )}
             {puedeInstalar && (
               <button
                 type="button"

@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// Reglas de seguridad de la base de datos.
+// Cada usuario solo puede leer y escribir sus propios partidos, y solo con datos bien formados.
+// Todo lo que no se permite aquí expresamente está prohibido.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function esDueno(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function textoValido(valor, maximo) {
+      return valor is string && valor.size() > 0 && valor.size() <= maximo;
+    }
+
+    function partidoValido(datos) {
+      return datos.keys().hasAll(['fecha', 'local', 'visitante', 'categoria', 'importeCentimos', 'estado', 'creadoEn'])
+        && datos.keys().hasOnly(['fecha', 'hora', 'local', 'visitante', 'categoria', 'importeCentimos', 'estado', 'creadoEn', 'campo', 'designacion'])
+        && datos.fecha is string && datos.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && textoValido(datos.local, 200)
+        && textoValido(datos.visitante, 200)
+        && textoValido(datos.categoria, 200)
+        && datos.importeCentimos is int && datos.importeCentimos >= 0 && datos.importeCentimos <= 10000000
+        && datos.estado in ['pendiente', 'cobrado']
+        && datos.creadoEn is number
+        && (!('hora' in datos) || (datos.hora is string && datos.hora.matches('^[0-9]{2}:[0-9]{2}$')))
+        && (!('campo' in datos) || textoValido(datos.campo, 200))
+        && (!('designacion' in datos) || (datos.designacion is string && datos.designacion.matches('^[0-9]{1,20}$')));
+    }
+
+    match /usuarios/{uid}/partidos/{partidoId} {
+      allow read, delete: if esDueno(uid);
+      allow create, update: if esDueno(uid) && partidoId.size() <= 200 && partidoValido(request.resource.data);
+    }
+  }
+}
