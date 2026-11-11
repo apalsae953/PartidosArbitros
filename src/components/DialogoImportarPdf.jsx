@@ -31,7 +31,7 @@ function ResultadoPdf({ resultado, seleccionado, onAlternar }) {
     );
   }
 
-  const { partido, desglose, avisos, duplicado } = resultado;
+  const { partido, desglose, avisos, notas = [], duplicado } = resultado;
   return (
     <li>
       <label
@@ -67,6 +67,12 @@ function ResultadoPdf({ resultado, seleccionado, onAlternar }) {
               Ya está registrado
             </span>
           )}
+          {notas.map((nota) => (
+            <span key={nota} className="mt-2 flex items-start gap-1.5 text-xs text-slate-600">
+              <Icono nombre="cartera" className="mt-px h-3.5 w-3.5 shrink-0 text-slate-400" />
+              {nota}
+            </span>
+          ))}
           {avisos.map((aviso) => (
             <span key={aviso} className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
               <Icono nombre="alerta" className="mt-px h-3.5 w-3.5 shrink-0" />

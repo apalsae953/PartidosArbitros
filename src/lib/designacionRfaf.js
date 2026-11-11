@@ -25,12 +25,28 @@ function buscarImporte(texto, concepto) {
   return resultado ? eurosACentimos(resultado[1]) : null;
 }
 
-// Nombres de los clubes según los recibos y las liquidaciones (pueden ser más largos que en la designación)
+// Nombres de los clubes según los recibos y las liquidaciones (pueden ser más largos que en la designación).
+// Los recibos pueden ser de pago telemático ("Pendiente por recibir de manera telemática del club…")
+// o de cobro en el campo ("Recibí del club…").
 function clubesDelDocumento(textoCompleto) {
   const clubes = [];
-  for (const [, club] of textoCompleto.matchAll(/telem[aá]tica del club (.+?) de \S[^,]*? la cantidad/g)) clubes.push(club);
-  for (const [, club] of textoCompleto.matchAll(/Liquidaci[oó]n (.+?) Euros Importe/g)) clubes.push(club);
+  for (const [, club] of textoCompleto.matchAll(/del club (.+?) de \S[^,]*? la cantidad/g)) clubes.push(club);
+  for (const [, club] of textoCompleto.matchAll(/Liquidaci[oó]n (.+?) Euros (?:Importe|Recibido)/g)) clubes.push(club);
   return clubes.map(normalizarTexto);
+}
+
+// Cuando el árbitro cobra en el campo, los recibos dicen "Recibí del club X de Y la cantidad de 11,50"
+// y la liquidación por club indica el "Remanente" que se entrega a la delegación
+function cobroEnCampo(textoCompleto) {
+  const recibos = [...textoCompleto.matchAll(/Recib[ií] del club .+? la cantidad de (\d{1,4}(?:\.\d{3})*,\d{2})/g)];
+  if (recibos.length === 0) return null;
+  const remanentes = [...textoCompleto.matchAll(/Remanente (\d{1,4}(?:\.\d{3})*,\d{2})/g)];
+  const sumar = (coincidencias) => coincidencias.reduce((suma, [, importe]) => suma + eurosACentimos(importe), 0);
+  return { recibido: sumar(recibos), remanente: remanentes.length > 0 ? sumar(remanentes) : null };
+}
+
+function textoEuros(centimos) {
+  return `${(centimos / 100).toFixed(2).replace('.', ',')} €`;
 }
 
 function seParecen(equipo, club) {
@@ -73,7 +89,8 @@ export function interpretarDesignacion(paginas) {
   const frase = designacion.slice(inicio, finCampo === -1 ? undefined : finCampo);
 
   const fechaHora = frase.match(/Con fecha (\d{1,2})-(\d{1,2})-(\d{4}) a las (\d{1,2}):(\d{2})/);
-  const partido = frase.match(/entre los equipos (.+) de la (.+?), grupo (.+?)\.?\s*$/);
+  // El grupo no siempre aparece (por ejemplo, en torneos de escuelas: "de la TOR-ALE-F7-M-CEDIFA.")
+  const partido = frase.match(/entre los equipos (.+) de la (?:competici[oó]n )?(.+?)(?:, grupo (.+?))?\.?\s*$/);
   if (!fechaHora || !partido) {
     return { ok: false, motivo: 'No se han encontrado la fecha o los equipos del partido.' };
   }
@@ -93,7 +110,7 @@ export function interpretarDesignacion(paginas) {
   const desglose = {
     arbitraje: buscarImporte(tabla, 'Importe arbitraje'),
     manutencion: buscarImporte(tabla, 'Gastos por manutenci[oó]n'),
-    kilometraje: buscarImporte(tabla, 'Kilometraje'),
+    kilometraje: buscarImporte(tabla, 'Kilometrajes?'),
     total: buscarImporte(tabla, 'Total'),
   };
   const suma = (desglose.arbitraje || 0) + (desglose.manutencion || 0) + (desglose.kilometraje || 0);
@@ -108,9 +125,21 @@ export function interpretarDesignacion(paginas) {
     avisos.push('El total no coincide con la suma de conceptos; revisa el importe.');
   }
 
+  // Información útil que no es un problema
+  const notas = [];
+  const enCampo = cobroEnCampo(textos.join(' '));
+  if (enCampo) {
+    notas.push(
+      enCampo.remanente
+        ? `Cobro en el campo: los clubes te entregan ${textoEuros(enCampo.recibido)} y ${textoEuros(enCampo.remanente)} son para la delegación.`
+        : `Cobro en el campo: los clubes te entregan ${textoEuros(enCampo.recibido)}.`
+    );
+  }
+
   return {
     ok: true,
     avisos,
+    notas,
     desglose,
     partido: {
       fecha: `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`,

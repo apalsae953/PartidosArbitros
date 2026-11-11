@@ -112,6 +112,51 @@ describe('interpretarDesignacion', () => {
     expect(resultado.avisos[0]).toMatch(/no coincide/);
   });
 
+  it('lee torneos sin grupo, con "Kilometrajes" y cobro en el campo', () => {
+    // Formato de los torneos de escuelas (CEDIFA): sin grupo, sin delegación y con recibos "Recibí del club"
+    const designacionTorneo =
+      'USUARIO comite 1 Designación de ARBITRO Con fecha 14-11-2026 a las 11:00 , GARCIA LOPEZ, JUAN actuará como ARBITRO entre los equipos E.F. ' +
+      'MACAEL y E.F. VERA de la TOR-ALE-F7-M-CEDIFA . El partido tendrá lugar en el campo Macael - CIUDAD DEPORTIVA DE MACAEL - CAMPO ANEXO - (F-11,F-7) ' +
+      'de Macael . Personal designado actuará como: Liquidación Euros Importe arbitraje 11,50 Gastos por manutención 0,00 Kilometrajes 0,00 Total 11,50 ' +
+      'Delegación: Designación Nº: 2012624 Firma, En a de 20';
+    const reciboCampo = (club, ciudad) =>
+      `Recibo Recibí del club ${club} de ${ciudad} la cantidad de 11,50 por el partido entre los equipos E.F. MACAEL y E.F. VERA referente a la competición de TOR-ALE-F7-M-CEDIFA . Designación Nº: 2012624`;
+    const liquidacionClubes =
+      'Liquidación D./Dª. GARCIA LOPEZ, JUAN , en función de ARBITRO del partido que enfrentan a los equipos E.F. MACAEL y E.F. VERA de la competición TOR-ALE-F7-M-CEDIFA , hace liquidación ' +
+      'Liquidación E.F. MACAEL Euros Recibido del club 11,50 Importe arbitraje 5,75 Remanente 5,75 Total 5,75 ' +
+      'Liquidación E.F. VERA Euros Recibido del club 11,50 Importe arbitraje 5,75 Remanente 5,75 Total 5,75';
+    const impresoGastos =
+      'LIQUIDACIÓN GASTOS PARTIDO Temporada 2026-2027 ARBITRO GARCIA LOPEZ, JUAN Partido Jugado en Macael el día 14.0 de de 2026 Entre los equipos E.F. MACAEL y E.F. VERA Total 0,00';
+
+    const resultado = interpretarDesignacion([
+      designacionTorneo,
+      reciboCampo('E.F. MACAEL', 'MACAEL'),
+      reciboCampo('E.F. VERA', 'VERA'),
+      liquidacionClubes,
+      impresoGastos,
+    ]);
+    expect(resultado.ok).toBe(true);
+    expect(resultado.partido).toEqual({
+      fecha: '2026-11-14',
+      hora: '11:00',
+      local: 'E.F. MACAEL',
+      visitante: 'E.F. VERA',
+      categoria: 'TOR-ALE-F7-M-CEDIFA',
+      importeCentimos: 1150,
+      campo: 'Macael - CIUDAD DEPORTIVA DE MACAEL - CAMPO ANEXO - (F-11,F-7)',
+      designacion: '2012624',
+    });
+    expect(resultado.desglose).toEqual({ arbitraje: 1150, manutencion: 0, kilometraje: 0, total: 1150 });
+    expect(resultado.avisos).toEqual([]);
+    expect(resultado.notas).toEqual([
+      'Cobro en el campo: los clubes te entregan 23,00 € y 11,50 € son para la delegación.',
+    ]);
+  });
+
+  it('no añade nota de cobro en el campo cuando el pago es telemático', () => {
+    expect(interpretarDesignacion(CADETE_CON_ASISTENTES).notas).toEqual([]);
+  });
+
   it('rechaza PDF que no son designaciones', () => {
     expect(interpretarDesignacion(['Factura nº 123 Total 50,00'])).toEqual({
       ok: false,
