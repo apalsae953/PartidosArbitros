@@ -26,7 +26,15 @@ function LineasCampo() {
   );
 }
 
-export default function Cabecera({ temporada, temporadas, onCambiarTemporada, puedeInstalar, onInstalar, onNuevo }) {
+export default function Cabecera({
+  temporada,
+  temporadas,
+  onCambiarTemporada,
+  puedeInstalar,
+  onInstalar,
+  onNuevo,
+  onImportarPdf,
+}) {
   return (
     <header className="relative overflow-hidden bg-slate-950 pb-28 sm:pb-32">
       {/* Brillo verde suave detrás del título */}
@@ -57,6 +65,14 @@ export default function Cabecera({ temporada, temporadas, onCambiarTemporada, pu
               <span className="sm:hidden">Instalar</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={onImportarPdf}
+            className="hidden h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-slate-200 ring-1 ring-inset ring-white/15 transition-[background-color,transform] duration-150 ease-salida hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 active:scale-[0.97] sm:inline-flex"
+          >
+            <Icono nombre="documento" className="h-4 w-4" />
+            Importar PDF
+          </button>
           <button
             type="button"
             onClick={onNuevo}

@@ -43,6 +43,14 @@ function FilaPartido({ partido, resaltado, onEditar, onAlternarEstado }) {
           </span>
           <span className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-slate-500">
             <span className="truncate">{partido.categoria}</span>
+            {partido.hora && (
+              <>
+                <span aria-hidden="true" className="text-slate-300">
+                  ·
+                </span>
+                <span className="cifras shrink-0">{partido.hora}</span>
+              </>
+            )}
             <span aria-hidden="true" className="text-slate-300">
               ·
             </span>
@@ -75,7 +83,7 @@ function FilaPartido({ partido, resaltado, onEditar, onAlternarEstado }) {
   );
 }
 
-function EstadoVacio({ onNuevo }) {
+function EstadoVacio({ onNuevo, onImportarPdf }) {
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">
       <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-inset ring-emerald-600/10">
@@ -93,6 +101,13 @@ function EstadoVacio({ onNuevo }) {
         <Icono nombre="mas" className="h-4 w-4" />
         Añadir mi primer partido
       </button>
+      <button
+        type="button"
+        onClick={onImportarPdf}
+        className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-800"
+      >
+        <Icono nombre="documento" className="h-4 w-4" />o impórtalo desde el PDF de designación
+      </button>
     </div>
   );
 }
@@ -107,6 +122,7 @@ export default function ListaPartidos({
   onEditar,
   onAlternarEstado,
   onNuevo,
+  onImportarPdf,
 }) {
   const grupos = useMemo(() => agruparPorMes(partidos), [partidos]);
   const hayFiltros = filtros.mes || filtros.estado !== 'todos' || filtros.busqueda;
@@ -178,7 +194,7 @@ export default function ListaPartidos({
       </div>
 
       {!hayPartidos ? (
-        <EstadoVacio onNuevo={onNuevo} />
+        <EstadoVacio onNuevo={onNuevo} onImportarPdf={onImportarPdf} />
       ) : grupos.length === 0 ? (
         <div className="px-6 py-12 text-center">
           <p className="text-sm text-slate-500">

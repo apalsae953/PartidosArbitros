@@ -12,6 +12,10 @@ dispositivo de cada usuario.
 - **Lista agrupada por meses** con búsqueda (sin importar tildes) y filtro por estado de cobro.
 - **Añadir y editar** en una ventana (hoja inferior en el móvil). Al elegir categoría se propone el importe del último
   partido de esa categoría, y «Guardar y otro» deja el formulario listo para el siguiente.
+- **Importar desde el PDF de designación de la RFAF**: lee fecha, hora, equipos, competición, campo, número de
+  designación e importe total de tu liquidación (arbitraje + manutención + kilometraje). Admite varios PDF a la vez
+  (botón «Importar PDF», dentro de «Nuevo partido» o arrastrándolos a la página), muestra una vista previa y avisa si
+  un partido ya está registrado. El PDF se lee en el propio navegador con pdf.js y no se envía a ningún sitio.
 - **Cobrar con un toque** desde la lista y **eliminar con opción de deshacer**.
 - **Copias de seguridad** (.json para restaurar, .csv para Excel) con recordatorio si llevas tiempo sin hacer una.
 
@@ -103,6 +107,16 @@ src/config/titular.js      Tus datos para los textos legales
 scripts/servir-dist.mjs    Servidor local que imita las cabeceras de Vercel
 prototipo/                 Versión inicial en un solo archivo (no se publica; se puede borrar)
 ```
+
+## Lector de PDF
+
+El lector de designaciones está en [`src/lib/designacionRfaf.js`](src/lib/designacionRfaf.js) y sus tests en
+[`src/lib/designacionRfaf.test.js`](src/lib/designacionRfaf.test.js). Si la RFAF cambia el formato del PDF y deja de
+leerse bien, ahí es donde hay que ajustarlo. Los tests usan textos con nombres inventados: no guardes PDF reales en el
+repositorio, porque contienen nombres y teléfonos de otras personas.
+
+pdf.js (unos 1,8 MB) no se descarga al instalar la app, sino la primera vez que se importa un PDF; a partir de ahí
+queda guardado y funciona sin conexión.
 
 ## Nota sobre `npm audit`
 

@@ -7,6 +7,17 @@ function esTextoValido(valor) {
   return typeof valor === 'string' && valor.length > 0 && valor.length <= MAX_LONGITUD_TEXTO;
 }
 
+// Campos opcionales: solo los tienen los partidos importados desde un PDF de designación
+export const CAMPOS_OPCIONALES = {
+  hora: /^\d{2}:\d{2}$/,
+  campo: null,
+  designacion: /^\d{1,20}$/,
+};
+
+function esOpcionalValido(valor, patron) {
+  return valor === undefined || (esTextoValido(valor) && (!patron || patron.test(valor)));
+}
+
 export function esPartidoValido(partido) {
   return Boolean(
     partido &&
@@ -17,8 +28,18 @@ export function esPartidoValido(partido) {
       esTextoValido(partido.categoria) &&
       Number.isInteger(partido.importeCentimos) &&
       partido.importeCentimos >= 0 &&
-      Object.values(ESTADOS).includes(partido.estado)
+      Object.values(ESTADOS).includes(partido.estado) &&
+      Object.entries(CAMPOS_OPCIONALES).every(([campo, patron]) => esOpcionalValido(partido[campo], patron))
   );
+}
+
+// Quita los campos opcionales vacíos para no guardar textos en blanco
+export function limpiarOpcionales(partido) {
+  const limpio = { ...partido };
+  for (const campo of Object.keys(CAMPOS_OPCIONALES)) {
+    if (!limpio[campo]) delete limpio[campo];
+  }
+  return limpio;
 }
 
 // localStorage puede no existir o lanzar errores (modo privado, almacenamiento bloqueado...),

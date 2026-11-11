@@ -42,6 +42,13 @@ describe('exportar e importar', () => {
     expect(descartados).toBe(0);
   });
 
+  it('conserva hora, campo y nº de designación de los partidos importados de PDF', () => {
+    const conDatos = partido('a', { hora: '12:00', campo: 'Campo Municipal', designacion: '2009504' });
+    expect(leerCopia(generarJSON([conDatos])).partidos[0]).toEqual(conDatos);
+    expect(esPartidoValido(partido('a', { hora: '25h' }))).toBe(false);
+    expect(esPartidoValido(partido('a', { designacion: 'abc' }))).toBe(false);
+  });
+
   it('acepta también una lista simple de partidos', () => {
     expect(leerCopia(JSON.stringify([partido('a')])).partidos).toHaveLength(1);
   });
@@ -83,9 +90,9 @@ describe('generarCSV', () => {
     const csv = generarCSV([partido('a'), partido('b', { fecha: '2026-11-01', estado: 'cobrado', importeCentimos: 4800 })]);
     expect(csv.startsWith('﻿')).toBe(true);
     const lineas = csv.slice(1).split('\r\n');
-    expect(lineas[0]).toBe('Fecha;Equipo local;Equipo visitante;Categoría;Importe (€);Estado');
-    expect(lineas[1]).toBe('01/11/2026;CD Ribera;UD Montaña;Juvenil;48,00;Cobrado');
-    expect(lineas[2]).toBe('25/10/2026;CD Ribera;UD Montaña;Juvenil;35,50;Pendiente');
+    expect(lineas[0]).toBe('Fecha;Hora;Equipo local;Equipo visitante;Categoría;Importe (€);Estado;Campo;Designación');
+    expect(lineas[1]).toBe('01/11/2026;;CD Ribera;UD Montaña;Juvenil;48,00;Cobrado;;');
+    expect(lineas[2]).toBe('25/10/2026;;CD Ribera;UD Montaña;Juvenil;35,50;Pendiente;;');
   });
 
   it('escapa comillas y separadores, y neutraliza fórmulas', () => {

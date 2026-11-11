@@ -1,5 +1,5 @@
 import { ETIQUETAS_ESTADO } from './constantes.js';
-import { esPartidoValido } from './almacenamiento.js';
+import { CAMPOS_OPCIONALES, esPartidoValido } from './almacenamiento.js';
 import { fechaDeHoy, ordenarPorFecha } from './formato.js';
 
 // =========================================================================
@@ -28,14 +28,17 @@ export function celdaCSV(valor) {
 // CSV con separador ";" y coma decimal, que es lo que espera Excel en español.
 // El BOM inicial hace que Excel lea bien las tildes y la ñ.
 export function generarCSV(partidos) {
-  const cabecera = ['Fecha', 'Equipo local', 'Equipo visitante', 'Categoría', 'Importe (€)', 'Estado'];
+  const cabecera = ['Fecha', 'Hora', 'Equipo local', 'Equipo visitante', 'Categoría', 'Importe (€)', 'Estado', 'Campo', 'Designación'];
   const filas = ordenarPorFecha(partidos).map((p) => [
     p.fecha.split('-').reverse().join('/'),
+    p.hora || '',
     p.local,
     p.visitante,
     p.categoria,
     (p.importeCentimos / 100).toFixed(2).replace('.', ','),
     ETIQUETAS_ESTADO[p.estado],
+    p.campo || '',
+    p.designacion || '',
   ]);
   return '﻿' + [cabecera, ...filas].map((fila) => fila.map(celdaCSV).join(';')).join('\r\n');
 }
@@ -87,6 +90,8 @@ export function leerCopia(texto) {
       categoria: partido.categoria,
       importeCentimos: partido.importeCentimos,
       estado: partido.estado,
+      // Hora, campo y nº de designación solo si el partido los tiene
+      ...Object.fromEntries(Object.keys(CAMPOS_OPCIONALES).filter((c) => partido[c] !== undefined).map((c) => [c, partido[c]])),
     });
   }
   return { partidos: validos, descartados: lista.length - validos.length };

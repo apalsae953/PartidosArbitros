@@ -1,70 +1,72 @@
-import { useEffect, useRef } from 'react';
 import FormularioPartido from './FormularioPartido.jsx';
 import Icono from './Icono.jsx';
+import VentanaModal from './VentanaModal.jsx';
 
-// Ventana para crear o editar un partido. Usa <dialog> nativo: bloquea el fondo,
-// atrapa el foco y se cierra con Escape. En móvil se muestra como hoja inferior (ver index.css).
-export default function DialogoPartido({ dialogo, categoriasRapidas, sugerirImporte, onGuardar, onEliminar, onCerrar }) {
-  const ref = useRef(null);
-  // Para cerrar al pulsar fuera solo si el gesto empieza y termina en el fondo (no al seleccionar texto)
-  const pulsadoEnFondo = useRef(false);
+// Datos que solo tienen los partidos importados de un PDF de designación (no se editan a mano)
+function DatosDesignacion({ partido }) {
+  if (!partido.designacion && !partido.hora && !partido.campo) return null;
+  return (
+    <div className="mb-5 space-y-1 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-600 ring-1 ring-inset ring-slate-200">
+      {partido.designacion && (
+        <p className="flex items-center gap-1.5">
+          <Icono nombre="documento" className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          Designación nº {partido.designacion}
+          {partido.hora && <> · {partido.hora} h</>}
+        </p>
+      )}
+      {partido.campo && (
+        <p className="flex items-start gap-1.5">
+          <Icono nombre="ubicacion" className="mt-px h-3.5 w-3.5 shrink-0 text-slate-400" />
+          {partido.campo}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Ventana para crear o editar un partido
+export default function DialogoPartido({
+  dialogo,
+  categoriasRapidas,
+  sugerirImporte,
+  onGuardar,
+  onEliminar,
+  onImportarPdf,
+  onCerrar,
+}) {
   const { abierto, partido, base, apertura } = dialogo;
 
-  useEffect(() => {
-    const elemento = ref.current;
-    if (abierto) {
-      // Si ya estaba abierto ("Guardar y añadir otro") solo se vuelve arriba con el formulario limpio
-      if (!elemento.open) elemento.showModal();
-      elemento.firstElementChild.scrollTop = 0;
-      // Con ratón se enfoca el primer campo; en móvil no, para no sacar el teclado de golpe
-      if (window.matchMedia('(pointer: fine)').matches) elemento.querySelector('[data-autofoco]')?.focus();
-    } else if (elemento.open) {
-      elemento.close();
-    }
-  }, [abierto, apertura]);
-
   return (
-    <dialog
-      ref={ref}
-      className="dialogo"
-      aria-labelledby="titulo-dialogo"
-      onClose={onCerrar}
-      onPointerDown={(e) => {
-        pulsadoEnFondo.current = e.target === e.currentTarget;
-      }}
-      onClick={(e) => {
-        if (pulsadoEnFondo.current && e.target === e.currentTarget) onCerrar();
-      }}
-    >
-      <div className="max-h-[inherit] overflow-y-auto overscroll-contain px-5 pb-5 pt-3 sm:px-6 sm:pb-6 sm:pt-5">
-        {/* Asa decorativa de la hoja inferior en móvil */}
-        <div aria-hidden="true" className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200 sm:hidden" />
+    <VentanaModal abierto={abierto} apertura={apertura} titulo={partido ? 'Editar partido' : 'Nuevo partido'} onCerrar={onCerrar}>
+      {partido ? (
+        <DatosDesignacion partido={partido} />
+      ) : (
+        <button
+          type="button"
+          onClick={onImportarPdf}
+          className="mb-5 flex w-full items-center gap-3 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/60 px-4 py-3 text-left transition-colors hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-600/10">
+            <Icono nombre="documento" className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-emerald-800">Rellenar desde el PDF de designación</span>
+            <span className="block text-xs text-emerald-700/80">Se lee en tu dispositivo, no se envía a ningún sitio</span>
+          </span>
+          <Icono nombre="chevronDerecha" className="h-4 w-4 shrink-0 text-emerald-600" />
+        </button>
+      )}
 
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <h2 id="titulo-dialogo" className="text-lg font-semibold tracking-tight text-slate-900">
-            {partido ? 'Editar partido' : 'Nuevo partido'}
-          </h2>
-          <button
-            type="button"
-            onClick={onCerrar}
-            aria-label="Cerrar"
-            className="-mr-2 flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-          >
-            <Icono nombre="cerrar" className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* La clave hace que el formulario empiece limpio cada vez que se abre */}
-        <FormularioPartido
-          key={apertura}
-          partido={partido}
-          base={base}
-          categoriasRapidas={categoriasRapidas}
-          sugerirImporte={sugerirImporte}
-          onGuardar={onGuardar}
-          onEliminar={onEliminar}
-        />
-      </div>
-    </dialog>
+      {/* La clave hace que el formulario empiece limpio cada vez que se abre */}
+      <FormularioPartido
+        key={apertura}
+        partido={partido}
+        base={base}
+        categoriasRapidas={categoriasRapidas}
+        sugerirImporte={sugerirImporte}
+        onGuardar={onGuardar}
+        onEliminar={onEliminar}
+      />
+    </VentanaModal>
   );
 }

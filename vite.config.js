@@ -52,6 +52,19 @@ export default defineConfig({
       workbox: {
         // Se guarda todo lo necesario para que la app funcione sin conexión
         globPatterns: ['**/*.{html,js,css,woff2,png,svg}'],
+        // El lector de PDF (unos 1,8 MB) no se descarga al instalar: solo la primera vez que se usa
+        globIgnores: ['**/assets/pdf*.{js,mjs}'],
+        runtimeCaching: [
+          {
+            // Sus archivos llevan un código en el nombre que cambia con cada versión, así que se pueden guardar sin caducidad
+            urlPattern: ({ url }) => url.origin === self.location.origin && /\/assets\/pdf.*\.m?js$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'lector-pdf',
+              expiration: { maxEntries: 6 },
+            },
+          },
+        ],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
       },

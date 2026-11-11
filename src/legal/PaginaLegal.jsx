@@ -22,6 +22,11 @@ const COMPONENTES_TERCEROS = [
     licencia: 'SIL Open Font License 1.1',
     copyright: 'Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)',
   },
+  {
+    nombre: 'PDF.js (lector de PDF)',
+    licencia: 'Apache 2.0',
+    copyright: 'Copyright Mozilla Foundation and contributors (https://mozilla.github.io/pdf.js/)',
+  },
 ];
 
 const TEXTO_MIT = `Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
@@ -164,8 +169,13 @@ export default function PaginaLegal() {
           <h3>Datos que se tratan</h3>
           <ul>
             <li>
-              <strong>Datos de tus partidos</strong> (fecha, equipos, categoría, importe y estado de cobro): se guardan
-              solo en tu dispositivo. El titular no los recibe ni puede verlos.
+              <strong>Datos de tus partidos</strong> (fecha, hora, equipos, categoría, campo, número de designación,
+              importe y estado de cobro): se guardan solo en tu dispositivo. El titular no los recibe ni puede verlos.
+            </li>
+            <li>
+              <strong>PDF de designación</strong>: si importas uno, se lee dentro de tu propio navegador y no se envía ni
+              se guarda en ningún sitio. De él solo se conservan los datos del partido indicados arriba; el resto del
+              contenido (como los nombres y teléfonos del equipo arbitral) se descarta.
             </li>
             <li>
               <strong>Archivos de copia de seguridad</strong>: los generas tú al pulsar «Exportar» y quedan bajo tu
@@ -253,6 +263,13 @@ export default function PaginaLegal() {
             <EnlaceExterno href="https://openfontlicense.org/open-font-license-official-text/">SIL Open Font License 1.1</EnlaceExterno>.
             Puedes consultar{' '}
             <a href="/licencias/inter-OFL.txt" className="font-medium text-emerald-700 underline underline-offset-2">
+              su licencia completa
+            </a>
+            .
+          </p>
+          <p>
+            PDF.js se distribuye bajo la licencia Apache 2.0. Puedes consultar{' '}
+            <a href="/licencias/pdfjs-LICENSE.txt" className="font-medium text-emerald-700 underline underline-offset-2">
               su licencia completa
             </a>
             .

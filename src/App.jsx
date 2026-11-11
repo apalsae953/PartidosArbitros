@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AvisoActualizacion from './components/AvisoActualizacion.jsx';
 import AvisoDatos from './components/AvisoDatos.jsx';
 import Cabecera from './components/Cabecera.jsx';
 import CopiaSeguridad from './components/CopiaSeguridad.jsx';
+import DialogoImportarPdf from './components/DialogoImportarPdf.jsx';
 import DialogoPartido from './components/DialogoPartido.jsx';
 import GraficoMensual from './components/GraficoMensual.jsx';
 import Icono from './components/Icono.jsx';
@@ -17,13 +18,16 @@ import {
   cargarPartidos,
   guardarPartidos,
   leerUltimaCopia,
+  limpiarOpcionales,
   recordarAvisoCerrado,
   registrarCopia,
 } from './lib/almacenamiento.js';
 import { CLAVE_PARTIDOS, ESTADOS } from './lib/constantes.js';
 import { combinarPartidos, exportarJSON } from './lib/copiaSeguridad.js';
 import { esIOS as detectarIOS } from './lib/dispositivo.js';
-import { centimosATexto, generarId } from './lib/formato.js';
+import { centimosATexto, generarId, ordenarPorFecha, textoPartidos } from './lib/formato.js';
+import { analizarPdfs, esPdf } from './lib/importarPdf.js';
+import { leerPaginasPdf } from './lib/leerPdf.js';
 import {
   TODAS_LAS_TEMPORADAS,
   categoriasFrecuentes,
@@ -49,6 +53,15 @@ export default function App() {
   const [temporada, setTemporada] = useState(() => temporadaInicial(partidos));
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
   const [dialogo, setDialogo] = useState({ abierto: false, partido: null, base: null, apertura: 0 });
+  const [importacion, setImportacion] = useState({
+    abierto: false,
+    apertura: 0,
+    cargando: false,
+    resultados: [],
+    numArchivos: 0,
+  });
+  const [arrastrando, setArrastrando] = useState(false);
+  const refSelectorPdf = useRef(null);
   const [aviso, setAviso] = useState(null);
   const [resaltadoId, setResaltadoId] = useState(null);
   const [avisoVisible, setAvisoVisible] = useState(() => !avisoYaCerrado());
@@ -81,6 +94,43 @@ export default function App() {
     const temporizador = setTimeout(() => setResaltadoId(null), 2000);
     return () => clearTimeout(temporizador);
   }, [resaltadoId]);
+
+  // Arrastrar y soltar PDF en cualquier parte de la página (en ordenador)
+  useEffect(() => {
+    let profundidad = 0;
+    const llevaArchivos = (evento) => evento.dataTransfer?.types.includes('Files');
+    function alEntrar(evento) {
+      if (!llevaArchivos(evento)) return;
+      profundidad += 1;
+      setArrastrando(true);
+    }
+    function alSalir(evento) {
+      if (!llevaArchivos(evento)) return;
+      profundidad = Math.max(profundidad - 1, 0);
+      if (profundidad === 0) setArrastrando(false);
+    }
+    function alPasar(evento) {
+      if (llevaArchivos(evento)) evento.preventDefault();
+    }
+    function alSoltar(evento) {
+      if (!llevaArchivos(evento)) return;
+      evento.preventDefault();
+      profundidad = 0;
+      setArrastrando(false);
+      const pdfs = [...evento.dataTransfer.files].filter(esPdf);
+      if (pdfs.length > 0) procesarPdfsRef.current(pdfs);
+    }
+    window.addEventListener('dragenter', alEntrar);
+    window.addEventListener('dragleave', alSalir);
+    window.addEventListener('dragover', alPasar);
+    window.addEventListener('drop', alSoltar);
+    return () => {
+      window.removeEventListener('dragenter', alEntrar);
+      window.removeEventListener('dragleave', alSalir);
+      window.removeEventListener('dragover', alPasar);
+      window.removeEventListener('drop', alSoltar);
+    };
+  }, []);
 
   const partidosTemporada = useMemo(() => filtrarPartidos(partidos, { temporada }), [partidos, temporada]);
   const partidosVisibles = useMemo(() => filtrarPartidos(partidosTemporada, filtros), [partidosTemporada, filtros]);
@@ -148,6 +198,48 @@ export default function App() {
     } else {
       cerrarDialogo();
     }
+  }
+
+  // =========================================================================
+  // Importación desde PDF de designación
+  // =========================================================================
+
+  // Se abre el selector dentro del propio clic (los navegadores lo exigen)
+  function elegirPdf() {
+    refSelectorPdf.current.click();
+  }
+
+  async function procesarPdfs(archivos) {
+    const lista = [...archivos];
+    if (lista.length === 0) return;
+    cerrarDialogo();
+    const apertura = importacion.apertura + 1;
+    setImportacion({ abierto: true, apertura, cargando: true, resultados: [], numArchivos: lista.length });
+    const resultados = await analizarPdfs(lista, partidos, leerPaginasPdf);
+    // Si mientras tanto se cerró o se empezó otra importación, se descarta este resultado
+    setImportacion((actual) =>
+      actual.apertura === apertura && actual.abierto ? { ...actual, cargando: false, resultados } : actual
+    );
+  }
+
+  // El arrastre usa la versión más reciente de la función sin volver a registrar los eventos
+  const procesarPdfsRef = useRef(procesarPdfs);
+  procesarPdfsRef.current = procesarPdfs;
+
+  function anadirImportados(nuevos, estado) {
+    const ahora = Date.now();
+    const creados = nuevos.map((partido, i) =>
+      limpiarOpcionales({ id: generarId(), creadoEn: ahora + i, ...partido, estado })
+    );
+    setPartidos((actuales) => [...actuales, ...creados]);
+    setImportacion((actual) => ({ ...actual, abierto: false }));
+    const masReciente = ordenarPorFecha(creados)[0];
+    asegurarVisible(masReciente);
+    setResaltadoId(masReciente.id);
+    mostrarAviso({
+      texto: creados.length === 1 ? 'Partido añadido desde el PDF' : `${textoPartidos(creados.length)} añadidos desde PDF`,
+      icono: 'documento',
+    });
   }
 
   function alternarEstado(id) {
@@ -226,6 +318,7 @@ export default function App() {
         puedeInstalar={puedeInstalar}
         onInstalar={instalar}
         onNuevo={() => abrirNuevo()}
+        onImportarPdf={elegirPdf}
       />
 
       <main className="relative mx-auto -mt-20 max-w-6xl space-y-4 px-4 pb-28 sm:-mt-24 sm:space-y-6 sm:px-6 sm:pb-10">
@@ -281,6 +374,7 @@ export default function App() {
               onEditar={abrirEdicion}
               onAlternarEstado={alternarEstado}
               onNuevo={() => abrirNuevo()}
+              onImportarPdf={elegirPdf}
             />
           </div>
 
@@ -314,8 +408,40 @@ export default function App() {
         sugerirImporte={sugerirImporte}
         onGuardar={guardarPartido}
         onEliminar={eliminarPartido}
+        onImportarPdf={elegirPdf}
         onCerrar={cerrarDialogo}
       />
+
+      <DialogoImportarPdf
+        importacion={importacion}
+        onConfirmar={anadirImportados}
+        onCerrar={() => setImportacion((actual) => ({ ...actual, abierto: false }))}
+      />
+
+      {/* Selector de archivos compartido por todos los botones de "Importar PDF" */}
+      <input
+        ref={refSelectorPdf}
+        type="file"
+        accept="application/pdf,.pdf"
+        multiple
+        className="hidden"
+        onChange={(evento) => {
+          const archivos = [...evento.target.files];
+          // Se vacía para poder volver a elegir los mismos archivos
+          evento.target.value = '';
+          procesarPdfs(archivos);
+        }}
+      />
+
+      {arrastrando && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-6 backdrop-blur-sm">
+          <div className="flex flex-col items-center rounded-2xl border-2 border-dashed border-emerald-400 bg-white px-10 py-8 text-center shadow-2xl">
+            <Icono nombre="documento" className="h-10 w-10 text-emerald-600" />
+            <p className="mt-3 text-base font-semibold text-slate-900">Suelta aquí tus PDF de designación</p>
+            <p className="mt-1 text-sm text-slate-500">Se leen en tu dispositivo y podrás revisarlos antes de añadirlos.</p>
+          </div>
+        </div>
+      )}
 
       <Notificacion aviso={aviso} onCerrar={cerrarNotificacion} />
     </>

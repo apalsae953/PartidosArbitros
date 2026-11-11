@@ -14,4 +14,4 @@ export const TITULAR = {
 };
 
 // Fecha de la última revisión de los textos legales (cámbiala si los modificas)
-export const FECHA_TEXTOS_LEGALES = '3 de noviembre de 2026';
+export const FECHA_TEXTOS_LEGALES = '11 de noviembre de 2026';
