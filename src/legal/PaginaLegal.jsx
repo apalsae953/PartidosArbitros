@@ -28,6 +28,11 @@ const COMPONENTES_TERCEROS = [
     copyright: 'Copyright Mozilla Foundation and contributors (https://mozilla.github.io/pdf.js/)',
   },
   {
+    nombre: 'Vercel Analytics',
+    licencia: 'MIT',
+    copyright: 'Copyright (c) 2026 Vercel, Inc.',
+  },
+  {
     nombre: 'Firebase JavaScript SDK (cuentas y base de datos)',
     licencia: 'Apache 2.0',
     copyright: 'Copyright Google LLC (https://github.com/firebase/firebase-js-sdk)',
@@ -125,8 +130,14 @@ export default function PaginaLegal() {
           </p>
 
           <h3>Condiciones de uso</h3>
+          <p>Al usar la app aceptas estas condiciones. Si no estás de acuerdo con ellas, no la utilices.</p>
           <ul>
             <li>La herramienta se ofrece «tal cual», de forma gratuita y sin garantías de ningún tipo.</li>
+            <li>
+              <strong>Edad mínima</strong>: para crear una cuenta debes tener al menos 14 años. Si eres menor de 14,
+              necesitas el consentimiento de tu padre, madre o tutor legal (art. 7 de la Ley Orgánica 3/2018). La app se
+              puede usar sin cuenta a cualquier edad.
+            </li>
             <li>
               Sin cuenta, los datos se guardan únicamente en el dispositivo del usuario: el titular no tiene acceso a ellos
               y no puede recuperarlos si se pierden.
@@ -166,8 +177,18 @@ export default function PaginaLegal() {
             Los nombres de equipos que introduce cada usuario son responsabilidad suya y no se publican en ningún sitio.
           </p>
 
+          <h3>Cambios en estas condiciones</h3>
+          <p>
+            El titular puede actualizar estas condiciones y la política de privacidad, por ejemplo al añadir funciones
+            nuevas. La fecha de la última actualización aparece al principio de esta página. Si un cambio afecta de forma
+            importante al tratamiento de tus datos, se avisará dentro de la app.
+          </p>
+
           <h3>Legislación aplicable</h3>
-          <p>Estas condiciones se rigen por la legislación española.</p>
+          <p>
+            Estas condiciones se rigen por la legislación española. Si eres consumidor, conservas los derechos que te
+            reconozca la normativa de tu lugar de residencia.
+          </p>
         </Seccion>
 
         <Seccion id="privacidad" titulo="Política de privacidad">
@@ -181,7 +202,10 @@ export default function PaginaLegal() {
               <strong>Con cuenta</strong>, se guardan en la base de datos de Google Firebase, en servidores de la Unión
               Europea, asociados a tu cuenta. Solo tú puedes leerlos y modificarlos.
             </li>
-            <li>No hay publicidad, analítica ni seguimiento, y tus datos no se venden ni se ceden a nadie.</li>
+            <li>
+              No hay publicidad ni seguimiento. Solo se cuentan visitas de forma anónima y sin cookies, y tus datos no se
+              venden ni se ceden a nadie.
+            </li>
           </ul>
 
           <h3>Responsable</h3>
@@ -214,6 +238,10 @@ export default function PaginaLegal() {
               automáticamente datos como la dirección IP, el navegador y la fecha de acceso, necesarios para servir la
               página y protegerla frente a abusos.
             </li>
+            <li>
+              <strong>Estadísticas de visitas</strong>: páginas vistas, país, tipo de dispositivo y navegador, de forma
+              agregada y anónima (ver «Estadísticas» más abajo).
+            </li>
           </ul>
 
           <h3>Alojamiento</h3>
@@ -244,12 +272,50 @@ export default function PaginaLegal() {
             limitado en eliminarlos de sus copias de seguridad internas).
           </p>
 
+          <h3>Protección contra abusos (App Check y reCAPTCHA)</h3>
+          <p>
+            Para evitar que programas automáticos abusen de la base de datos, cuando usas las cuentas la app comprueba con
+            Firebase App Check y Google reCAPTCHA Enterprise que las peticiones vienen de esta web y de una persona. Para
+            ello Google analiza datos técnicos del navegador y de la interacción. Solo se activa al entrar, registrarte o si
+            ya tienes la sesión iniciada; quien usa la app sin cuenta no lo carga. La base legal es el interés legítimo en
+            proteger el servicio y los datos de los usuarios (art. 6.1.f del RGPD). Más información en la{' '}
+            <EnlaceExterno href="https://policies.google.com/privacy">política de privacidad de Google</EnlaceExterno>.
+          </p>
+
+          <h3>Estadísticas</h3>
+          <p>
+            Para saber cuántas personas usan la app y mejorarla, se usa Vercel Web Analytics. No usa cookies ni guarda
+            nada en tu dispositivo, y no identifica a nadie: solo recoge datos agregados (páginas vistas, país, tipo de
+            dispositivo y navegador). La base legal es el interés legítimo en conocer el uso de la web (art. 6.1.f del
+            RGPD). Más información en la{' '}
+            <EnlaceExterno href="https://vercel.com/docs/analytics/privacy-policy">documentación de privacidad de Vercel Analytics</EnlaceExterno>.
+          </p>
+
+          <h3>Proveedores que tratan datos</h3>
+          <ul>
+            <li>
+              <strong>Vercel Inc.</strong>: alojamiento de la web y estadísticas anónimas.
+            </li>
+            <li>
+              <strong>Google (Firebase y reCAPTCHA)</strong>: cuentas, base de datos y protección contra abusos, solo si
+              usas una cuenta.
+            </li>
+          </ul>
+          <p>Ninguno de ellos usa tus datos para publicidad por encargo de esta app.</p>
+
+          <h3>Menores de edad</h3>
+          <p>
+            Para crear una cuenta hay que tener al menos 14 años o contar con el consentimiento de los padres o tutores.
+            Si eres padre, madre o tutor y crees que un menor de 14 años ha creado una cuenta sin tu permiso, escribe a{' '}
+            {correo} y se eliminará.
+          </p>
+
           <h3>Lo que la app no hace</h3>
           <ul>
-            <li>No usa analítica, publicidad ni herramientas de seguimiento.</li>
+            <li>No usa publicidad, cookies de seguimiento ni herramientas que te identifiquen entre webs.</li>
             <li>
-              No carga fuentes ni recursos de terceros, salvo los servicios de Google estrictamente necesarios para las
-              cuentas cuando decides usarlas.
+              No carga recursos de terceros, salvo los servicios de Google estrictamente necesarios para las cuentas cuando
+              decides usarlas.
             </li>
             <li>No es necesario registrarse para usarla.</li>
           </ul>
@@ -267,8 +333,9 @@ export default function PaginaLegal() {
 
         <Seccion id="cookies" titulo="Cookies y almacenamiento local">
           <p>
-            <strong>Esta web no usa cookies</strong>, ni propias ni de terceros. Para funcionar, guarda en tu navegador
-            (almacenamiento local o <em>localStorage</em>) solo lo imprescindible:
+            <strong>Esta web no usa cookies propias</strong>, ni de publicidad ni de análisis (las estadísticas de visitas
+            no usan cookies). Para funcionar, guarda en tu navegador (almacenamiento local o <em>localStorage</em>) solo lo
+            imprescindible:
           </p>
           <ul>
             <li>
@@ -290,8 +357,14 @@ export default function PaginaLegal() {
           </p>
           <p>
             Todo esto es estrictamente necesario para prestar el servicio que solicitas, por lo que no requiere
-            consentimiento (art. 22.2 de la Ley 34/2002, LSSI). Si eliges «Continuar con Google», el inicio de sesión se
-            hace en una ventana de Google, que aplica su propia política de cookies.
+            consentimiento (art. 22.2 de la Ley 34/2002, LSSI).
+          </p>
+          <p>
+            Solo si usas una cuenta intervienen servicios de Google que pueden usar sus propias cookies técnicas:
+            reCAPTCHA, para la protección contra abusos descrita en la política de privacidad, y la ventana de Google si
+            eliges «Continuar con Google». Son necesarias para la seguridad y el inicio de sesión que solicitas, y Google
+            aplica su propia{' '}
+            <EnlaceExterno href="https://policies.google.com/technologies/cookies">política de cookies</EnlaceExterno>.
           </p>
           <p>
             Puedes eliminarlo en cualquier momento borrando los datos del sitio en tu navegador. Si lo haces sin cuenta,

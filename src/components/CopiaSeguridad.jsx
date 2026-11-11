@@ -141,7 +141,7 @@ export default function CopiaSeguridad({ partidos, ultimaCopia, onExportarJSON, 
         <input ref={refArchivo} type="file" accept=".json,application/json" onChange={alElegirArchivo} className="hidden" />
       </div>
 
-      <p className="mt-3 text-xs leading-relaxed text-slate-400">
+      <p className="mt-3 text-xs leading-relaxed text-slate-500">
         La copia (.json) se puede volver a importar; el archivo de Excel (.csv) es solo para consultar.{' '}
         <button
           type="button"

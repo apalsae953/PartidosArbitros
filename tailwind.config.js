@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './legal.html', './src/**/*.{js,jsx}'],
+  content: ['./index.html', './legal.html', './404.html', './src/**/*.{js,jsx}'],
   // Los estilos hover solo se aplican con ratón; en móvil no se quedan "pegados" tras tocar
   future: {
     hoverOnlyWhenSupported: true,

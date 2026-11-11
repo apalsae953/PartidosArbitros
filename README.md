@@ -83,8 +83,13 @@ dejarían de ver sus datos.
 
 ## Cómo protege los datos y la privacidad
 
-- No hay servidor, cuentas, analítica ni cookies. Lo único que se guarda está en el `localStorage` del usuario.
-- La fuente, los iconos y todas las librerías se sirven desde la propia web: no hay peticiones a Google ni a CDNs.
+- Sin cuenta, todo se guarda en el `localStorage` del usuario. Con cuenta, en Firestore (Madrid) con reglas que
+  impiden ver o tocar datos ajenos.
+- **App Check** (reCAPTCHA Enterprise) comprueba que las peticiones a Firebase vienen de esta web. Solo se carga
+  cuando se usan las cuentas: quien usa la app sin cuenta no hace ninguna petición a Google.
+- **Vercel Web Analytics** cuenta visitas sin cookies ni identificadores (se activa en el panel de Vercel, pestaña
+  *Analytics*).
+- La fuente, los iconos y las librerías se sirven desde la propia web: no hay peticiones a CDNs.
 - Avisa de que borrar los datos del navegador borra los partidos y, en iPhone, explica que Safari borra los datos de
   las webs que no se abren en 7 días si no están en la pantalla de inicio.
 - Recuerda exportar una copia si nunca se ha hecho o si han pasado 30 días desde la última.
@@ -96,17 +101,31 @@ dejarían de ver sus datos.
 
 ```
 index.html, legal.html     Páginas de entrada (la app y la información legal)
-public/icons/              Iconos de la app (y sus SVG originales)
-public/licencias/          Licencia de la fuente Inter
+404.html                   Página de error para direcciones que no existen
+public/icons/              Iconos de la app, imagen para compartir (y sus SVG originales)
+public/licencias/          Licencias que exigen copia completa (Inter, PDF.js)
+public/robots.txt, sitemap.xml   Indicaciones para buscadores
 src/App.jsx                Composición de la app y gestión de los datos
 src/components/            Componentes de la interfaz
-src/hooks/                 Instalación como app
-src/lib/                   Lógica sin interfaz: formatos, almacenamiento, copias de seguridad
+src/hooks/                 Sesión, partidos (dispositivo o nube) e instalación como app
+src/lib/                   Lógica sin interfaz: formatos, almacenamiento, copias, PDF, temporadas
+src/lib/nube/              Conexión con Firebase (cuentas, base de datos, App Check)
 src/legal/                 Página de aviso legal, privacidad, cookies y licencias
-src/config/titular.js      Tus datos para los textos legales
-scripts/servir-dist.mjs    Servidor local que imita las cabeceras de Vercel
-prototipo/                 Versión inicial en un solo archivo (no se publica; se puede borrar)
+src/config/                Tus datos para los textos legales y la configuración de Firebase
+pruebas/                   Tests de las reglas de seguridad (con emulador)
+scripts/servir-dist.mjs    Servidor local que imita a Vercel (cabeceras, reescrituras, 404)
 ```
+
+## Buscadores, dominio y mantenimiento
+
+- **URLs limpias**: `/legal` sirve `legal.html` mediante una reescritura en `vercel.json`. No se usa `cleanUrls` porque
+  redirige los `.html` y eso impide al service worker guardar las páginas para usarlas sin conexión.
+- **Vista previa al compartir**: etiquetas Open Graph y `public/icons/compartir.jpg`.
+- **Si cambias de dominio**, actualiza la URL en `index.html`, `legal.html`, `public/robots.txt`,
+  `public/sitemap.xml`, `src/config/titular.js`, los dominios autorizados de Firebase Authentication y los de la
+  clave de reCAPTCHA.
+- **Pendiente de hacer a mano** (requiere tu cuenta): alta en Google Search Console y Bing Webmaster Tools (enviando
+  `sitemap.xml`), y un aviso de caída gratuito (por ejemplo, UptimeRobot) sobre la dirección publicada.
 
 ## Cuentas y nube (Firebase)
 

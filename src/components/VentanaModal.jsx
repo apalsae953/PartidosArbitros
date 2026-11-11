@@ -47,7 +47,7 @@ export default function VentanaModal({ abierto, apertura, titulo, onCerrar, chil
             type="button"
             onClick={onCerrar}
             aria-label="Cerrar"
-            className="-mr-2 flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            className="-mr-2 flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
             <Icono nombre="cerrar" className="h-5 w-5" />
           </button>

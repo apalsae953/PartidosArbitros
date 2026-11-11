@@ -54,7 +54,7 @@ function FilaPartido({ partido, resaltado, onEditar, onAlternarEstado }) {
             <span aria-hidden="true" className="text-slate-300">
               ·
             </span>
-            <span className={`shrink-0 font-medium ${cobrado ? 'text-emerald-600' : 'text-amber-600'}`}>
+            <span className={`shrink-0 font-medium ${cobrado ? 'text-emerald-700' : 'text-amber-700'}`}>
               {cobrado ? 'Cobrado' : 'Pendiente'}
             </span>
           </span>
@@ -74,7 +74,7 @@ function FilaPartido({ partido, resaltado, onEditar, onAlternarEstado }) {
         className={`mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-[background-color,color,transform] duration-150 ease-salida focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-90 sm:mr-2 ${
           cobrado
             ? 'bg-emerald-500 text-white hover:bg-emerald-600'
-            : 'text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-emerald-50 hover:text-emerald-600 hover:ring-emerald-300'
+            : 'text-slate-500 ring-1 ring-inset ring-slate-300 hover:bg-emerald-50 hover:text-emerald-600 hover:ring-emerald-300'
         }`}
       >
         <Icono nombre="check" className="h-4 w-4" />
@@ -222,7 +222,7 @@ export default function ListaPartidos({
             <div key={grupo.mes}>
               <div className="flex items-baseline justify-between gap-3 px-2 pb-1 pt-4 sm:px-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{nombreMes(grupo.mes)}</h3>
-                <p className="cifras text-xs text-slate-400">
+                <p className="cifras text-xs text-slate-500">
                   {textoPartidos(grupo.partidos.length)} · {formatearCentimos(grupo.total)}
                 </p>
               </div>

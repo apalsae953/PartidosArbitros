@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- Imagen que muestran WhatsApp, redes sociales y buscadores al compartir la web -->
+  <defs>
+    <radialGradient id="brillo" cx="0.12" cy="0.1" r="0.6">
+      <stop offset="0" stop-color="#10b981" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#020617"/>
+  <rect width="1200" height="630" fill="url(#brillo)"/>
+  <!-- Líneas de campo de fútbol, muy suaves -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="3">
+    <rect x="640" y="90" width="520" height="450" rx="6"/>
+    <line x1="900" y1="90" x2="900" y2="540"/>
+    <circle cx="900" cy="315" r="70"/>
+    <rect x="640" y="200" width="90" height="230"/>
+    <rect x="1070" y="200" width="90" height="230"/>
+  </g>
+  <!-- Logotipo -->
+  <rect x="80" y="90" width="120" height="120" rx="28" fill="#34d399"/>
+  <g transform="translate(104 114) scale(3)" fill="none" stroke="#020617" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+    <line x1="4" x2="4" y1="22" y2="15"/>
+  </g>
+  <text x="80" y="330" font-family="Arial, Helvetica, sans-serif" font-size="84" font-weight="700" fill="#ffffff">Mis Arbitrajes</text>
+  <text x="80" y="400" font-family="Arial, Helvetica, sans-serif" font-size="36" fill="#94a3b8">Tus partidos, lo cobrado y lo pendiente.</text>
+  <text x="80" y="450" font-family="Arial, Helvetica, sans-serif" font-size="36" fill="#94a3b8">Importa tu designación en PDF.</text>
+  <rect x="80" y="500" width="310" height="56" rx="28" fill="#10b981" fill-opacity="0.15" stroke="#34d399" stroke-opacity="0.5"/>
+  <text x="235" y="537" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#6ee7b7">Gratis · Sin anuncios</text>
+</svg>

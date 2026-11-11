@@ -79,7 +79,7 @@ export default function PanelEstadisticas({ partidos, etiquetaPeriodo, onVerPend
       </Tarjeta>
 
       <Tarjeta titulo="Pendiente" icono="reloj" claseIcono="bg-amber-50 text-amber-600">
-        <p className="cifras mt-3 text-xl font-semibold tracking-tight text-amber-600 sm:text-2xl lg:text-3xl">
+        <p className="cifras mt-3 text-xl font-semibold tracking-tight text-amber-700 sm:text-2xl lg:text-3xl">
           {formatearCentimos(resumen.pendiente)}
         </p>
         <div className="mt-auto flex items-center justify-between gap-2 pt-2 text-xs text-slate-500">

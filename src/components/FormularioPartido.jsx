@@ -210,7 +210,7 @@ export default function FormularioPartido({
           onClick={() => actualizar({ local: valores.visitante, visitante: valores.local })}
           aria-label="Intercambiar equipo local y visitante"
           title="Intercambiar equipos"
-          className="absolute right-2 top-[4.75rem] -translate-y-1/2 rounded-full bg-white p-1.5 text-slate-400 ring-1 ring-slate-200 transition-[color,transform] duration-150 ease-salida hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-90"
+          className="absolute right-2 top-[4.75rem] -translate-y-1/2 rounded-full bg-white p-1.5 text-slate-500 ring-1 ring-slate-200 transition-[color,transform] duration-150 ease-salida hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-90"
         >
           <Icono nombre="intercambiar" className="h-3.5 w-3.5 rotate-90" />
         </button>
@@ -282,7 +282,7 @@ export default function FormularioPartido({
               className={`${clasesEntrada(errores.importe)} cifras pr-8`}
               {...propsError('importe')}
             />
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-400">€</span>
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-500">€</span>
           </div>
         </Campo>
 

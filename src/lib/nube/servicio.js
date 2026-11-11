@@ -1,6 +1,7 @@
 // Conexión con Firebase: cuentas (Authentication) y base de datos (Firestore).
 // Este módulo se carga aparte (import dinámico) para no retrasar la primera carga de la app.
 import { initializeApp } from 'firebase/app';
+import { ReCaptchaEnterpriseProvider, initializeAppCheck } from 'firebase/app-check';
 import {
   EmailAuthProvider,
   GoogleAuthProvider,
@@ -32,7 +33,7 @@ import {
   terminate,
   writeBatch,
 } from 'firebase/firestore';
-import { CONFIG_EMULADORES, CONFIG_FIREBASE, USAR_EMULADORES } from '../../config/firebase.js';
+import { CLAVE_APP_CHECK, CONFIG_EMULADORES, CONFIG_FIREBASE, USAR_EMULADORES } from '../../config/firebase.js';
 import { esPartidoValido } from '../almacenamiento.js';
 import { datosDocumento, dividirEnLotes } from './cambios.js';
 
@@ -58,6 +59,18 @@ if (USAR_EMULADORES) {
 
 const coleccionPartidos = (uid) => collection(db, 'usuarios', uid, 'partidos');
 
+// App Check (reCAPTCHA Enterprise) se activa solo cuando se usan las cuentas: al entrar, al registrarse
+// o si ya había una sesión iniciada. Así quien usa la app sin cuenta no carga nada de Google.
+let appCheckActivo = false;
+function activarAppCheck() {
+  if (appCheckActivo || USAR_EMULADORES || !CLAVE_APP_CHECK) return;
+  appCheckActivo = true;
+  initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(CLAVE_APP_CHECK),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
+
 // =========================================================================
 // Cuentas
 // =========================================================================
@@ -73,24 +86,32 @@ function datosUsuario(usuario) {
 }
 
 export function observarSesion(alCambiar) {
-  return onAuthStateChanged(auth, (usuario) => alCambiar(usuario ? datosUsuario(usuario) : null));
+  return onAuthStateChanged(auth, (usuario) => {
+    // Con sesión se va a usar la base de datos: antes hay que activar App Check
+    if (usuario) activarAppCheck();
+    alCambiar(usuario ? datosUsuario(usuario) : null);
+  });
 }
 
 export async function entrarConCorreo(email, contrasena) {
+  activarAppCheck();
   await signInWithEmailAndPassword(auth, email, contrasena);
 }
 
 export async function crearCuenta(email, contrasena) {
+  activarAppCheck();
   await createUserWithEmailAndPassword(auth, email, contrasena);
 }
 
 export async function entrarConGoogle() {
+  activarAppCheck();
   const proveedor = new GoogleAuthProvider();
   proveedor.setCustomParameters({ prompt: 'select_account' });
   await signInWithPopup(auth, proveedor);
 }
 
 export async function recuperarContrasena(email) {
+  activarAppCheck();
   await sendPasswordResetEmail(auth, email);
 }
 

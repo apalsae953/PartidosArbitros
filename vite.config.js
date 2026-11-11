@@ -66,16 +66,19 @@ export default defineConfig({
           },
         ],
         navigateFallback: 'index.html',
+        // Solo la portada usa la copia guardada sin conexión; las direcciones que no existen muestran la página 404
+        navigateFallbackAllowlist: [/^\/$/],
         cleanupOutdatedCaches: true,
       },
     }),
   ],
   build: {
     rollupOptions: {
-      // Dos páginas: la app y la información legal
+      // Tres páginas: la app, la información legal y la de error 404
       input: {
         app: resolve(raiz, 'index.html'),
         legal: resolve(raiz, 'legal.html'),
+        noEncontrada: resolve(raiz, '404.html'),
       },
     },
   },

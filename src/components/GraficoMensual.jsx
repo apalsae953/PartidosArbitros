@@ -73,7 +73,7 @@ export default function GraficoMensual({ partidos, temporada, mesSeleccionado, o
               <span
                 key={m.mes}
                 className={`text-center text-[10px] font-medium uppercase tracking-wide ${
-                  m.mes === mesSeleccionado ? 'text-slate-900' : 'text-slate-400'
+                  m.mes === mesSeleccionado ? 'text-slate-900' : 'text-slate-500'
                 }`}
               >
                 {/* En pantallas estrechas solo la inicial del mes */}

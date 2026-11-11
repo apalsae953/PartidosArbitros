@@ -20,6 +20,8 @@ const TIPOS = {
   '.json': 'application/json',
   '.webmanifest': 'application/manifest+json',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.xml': 'application/xml; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
   '.txt': 'text/plain; charset=utf-8',
@@ -32,25 +34,47 @@ function coincide(patron, ruta) {
   return regex.test(ruta);
 }
 
+function ponerCabeceras(respuesta, ruta) {
+  for (const regla of config.headers) {
+    if (coincide(regla.source, ruta)) {
+      for (const { key, value } of regla.headers) respuesta.setHeader(key, value);
+    }
+  }
+}
+
+async function existeArchivo(archivo) {
+  try {
+    return (await stat(archivo)).isFile();
+  } catch {
+    return false;
+  }
+}
+
 createServer(async (peticion, respuesta) => {
   const ruta = decodeURIComponent(new URL(peticion.url, 'http://localhost').pathname);
-  let archivo = normalize(join(carpeta, ruta === '/' ? 'index.html' : ruta));
+
+  // Como "rewrites" de Vercel: /legal sirve legal.html sin cambiar la dirección
+  const reescritura = (config.rewrites || []).find((r) => r.source === ruta);
+  const destino = reescritura ? reescritura.destination : ruta;
+
+  const archivo = normalize(join(carpeta, destino === '/' ? 'index.html' : destino));
   if (!archivo.startsWith(carpeta)) {
     respuesta.writeHead(403).end();
     return;
   }
 
-  try {
-    if ((await stat(archivo)).isDirectory()) archivo = join(archivo, 'index.html');
-    const contenido = await readFile(archivo);
-    for (const regla of config.headers) {
-      if (coincide(regla.source, ruta)) {
-        for (const { key, value } of regla.headers) respuesta.setHeader(key, value);
-      }
-    }
+  ponerCabeceras(respuesta, ruta);
+  if (await existeArchivo(archivo)) {
     respuesta.setHeader('Content-Type', TIPOS[extname(archivo)] || 'application/octet-stream');
-    respuesta.writeHead(200).end(contenido);
-  } catch {
+    respuesta.writeHead(200).end(await readFile(archivo));
+    return;
+  }
+
+  // Como Vercel: si existe 404.html se muestra con el código 404
+  const pagina404 = join(carpeta, '404.html');
+  if (await existeArchivo(pagina404)) {
+    respuesta.writeHead(404, { 'Content-Type': TIPOS['.html'] }).end(await readFile(pagina404));
+  } else {
     respuesta.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('No encontrado');
   }
 }).listen(puerto, '127.0.0.1', () => {

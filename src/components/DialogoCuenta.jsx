@@ -101,7 +101,7 @@ function Acceso({ servicio }) {
         Continuar con Google
       </button>
 
-      <div className="flex items-center gap-3 text-xs text-slate-400" aria-hidden="true">
+      <div className="flex items-center gap-3 text-xs text-slate-500" aria-hidden="true">
         <span className="h-px flex-1 bg-slate-200" />o con tu correo<span className="h-px flex-1 bg-slate-200" />
       </div>
 
@@ -185,11 +185,11 @@ function Acceso({ servicio }) {
 
       <p className="text-xs leading-relaxed text-slate-500">
         Al crear una cuenta aceptas el{' '}
-        <a href="/legal.html#aviso-legal" className="underline underline-offset-2 hover:text-slate-800">
+        <a href="/legal#aviso-legal" className="underline underline-offset-2 hover:text-slate-800">
           aviso legal
         </a>{' '}
         y la{' '}
-        <a href="/legal.html#privacidad" className="underline underline-offset-2 hover:text-slate-800">
+        <a href="/legal#privacidad" className="underline underline-offset-2 hover:text-slate-800">
           política de privacidad
         </a>
         .
@@ -308,7 +308,7 @@ function Perfil({ usuario, servicio, nube, numPartidos, onExportar }) {
         <div className="min-w-0">
           {usuario.nombre && <p className="truncate font-semibold text-slate-900">{usuario.nombre}</p>}
           <p className="truncate text-sm text-slate-600">{usuario.email}</p>
-          <p className="text-xs text-slate-400">{usuario.conGoogle ? 'Cuenta de Google' : 'Correo y contraseña'}</p>
+          <p className="text-xs text-slate-500">{usuario.conGoogle ? 'Cuenta de Google' : 'Correo y contraseña'}</p>
         </div>
       </div>
 
