@@ -44,6 +44,15 @@ describe('ordenarPorFecha', () => {
     // No modifica la lista original
     expect(partidos[0].id).toBe('a');
   });
+
+  it('a igual fecha ordena por hora, de la más tardía a la más temprana', () => {
+    const partidos = [
+      { id: 'diez', fecha: '2026-11-14', hora: '10:00', creadoEn: 3 },
+      { id: 'once', fecha: '2026-11-14', hora: '11:00', creadoEn: 1 },
+      { id: 'sin-hora', fecha: '2026-11-14', creadoEn: 2 },
+    ];
+    expect(ordenarPorFecha(partidos).map((p) => p.id)).toEqual(['once', 'diez', 'sin-hora']);
+  });
 });
 
 describe('textoPartidos', () => {
@@ -51,5 +60,19 @@ describe('textoPartidos', () => {
     expect(textoPartidos(1)).toBe('1 partido');
     expect(textoPartidos(0)).toBe('0 partidos');
     expect(textoPartidos(3)).toBe('3 partidos');
+  });
+});
+
+describe('validarFormulario', async () => {
+  const { validarFormulario } = await import('../components/FormularioPartido.jsx');
+  const valores = { fecha: '2026-11-14', hora: '', local: 'A', visitante: 'B', categoria: 'Senior', importe: '20', estado: 'pendiente' };
+
+  it('la hora es opcional', () => {
+    expect(validarFormulario(valores).errores).toEqual({});
+    expect(validarFormulario({ ...valores, hora: '10:00' }).errores).toEqual({});
+  });
+
+  it('rechaza una hora mal escrita', () => {
+    expect(validarFormulario({ ...valores, hora: '10' }).errores).toEqual({ hora: 'Hora no válida' });
   });
 });

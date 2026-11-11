@@ -44,9 +44,12 @@ export function textoPartidos(cantidad) {
   return cantidad === 1 ? '1 partido' : `${cantidad} partidos`;
 }
 
-// Del más reciente al más antiguo; a igual fecha, el último registrado primero
+// Del más reciente al más antiguo; a igual fecha, por hora (los que no tienen hora, al final del día)
+// y, si coinciden, el último registrado primero
 export function ordenarPorFecha(partidos) {
-  return [...partidos].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creadoEn - a.creadoEn);
+  return [...partidos].sort(
+    (a, b) => b.fecha.localeCompare(a.fecha) || (b.hora || '').localeCompare(a.hora || '') || b.creadoEn - a.creadoEn
+  );
 }
 
 export function generarId() {

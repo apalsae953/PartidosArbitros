@@ -219,12 +219,13 @@ export default function App() {
 
   function guardarPartido(datos, { otro }) {
     let guardado;
+    // Los campos opcionales vacíos (por ejemplo, una hora borrada) no se guardan
     if (dialogo.partido) {
-      guardado = { ...dialogo.partido, ...datos };
+      guardado = limpiarOpcionales({ ...dialogo.partido, ...datos });
       cambiarPartidos((actuales) => actuales.map((p) => (p.id === guardado.id ? guardado : p)));
       mostrarAviso({ texto: 'Cambios guardados' });
     } else {
-      guardado = { id: generarId(), creadoEn: Date.now(), ...datos };
+      guardado = limpiarOpcionales({ id: generarId(), creadoEn: Date.now(), ...datos });
       cambiarPartidos((actuales) => [...actuales, guardado]);
       mostrarAviso({ texto: 'Partido añadido' });
     }

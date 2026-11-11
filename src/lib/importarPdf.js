@@ -8,14 +8,20 @@ export function esPdf(archivo) {
   return archivo.type === 'application/pdf' || /\.pdf$/i.test(archivo.name);
 }
 
-// Un partido ya registrado: mismo nº de designación, o misma fecha y mismos equipos
+// ¿Son el mismo partido?
+// - Si los dos tienen nº de designación, manda el número (en los torneos de escuelas los mismos equipos
+//   juegan varias veces el mismo día, una por categoría, cada una con su designación).
+// - Si no, misma fecha y mismos equipos, salvo que se conozca la hora de los dos y sea distinta.
+export function esMismoPartido(a, b) {
+  if (a.designacion && b.designacion) return a.designacion === b.designacion;
+  if (a.fecha !== b.fecha) return false;
+  if (normalizarTexto(a.local) !== normalizarTexto(b.local)) return false;
+  if (normalizarTexto(a.visitante) !== normalizarTexto(b.visitante)) return false;
+  return !(a.hora && b.hora && a.hora !== b.hora);
+}
+
 export function buscarDuplicado(partido, existentes) {
-  const clave = (p) => `${p.fecha}|${normalizarTexto(p.local)}|${normalizarTexto(p.visitante)}`;
-  return (
-    existentes.find((p) => partido.designacion && p.designacion === partido.designacion) ||
-    existentes.find((p) => clave(p) === clave(partido)) ||
-    null
-  );
+  return existentes.find((existente) => esMismoPartido(partido, existente)) || null;
 }
 
 function motivoDeError(error) {

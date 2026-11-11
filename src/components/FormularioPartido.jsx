@@ -10,6 +10,7 @@ function valoresIniciales(partido, base) {
   if (partido) {
     return {
       fecha: partido.fecha,
+      hora: partido.hora || '',
       local: partido.local,
       visitante: partido.visitante,
       categoria: partido.categoria,
@@ -19,6 +20,8 @@ function valoresIniciales(partido, base) {
   }
   return {
     fecha: base?.fecha || fechaDeHoy(),
+    // La hora no se arrastra con "Guardar y otro": el siguiente partido suele ser a otra hora
+    hora: '',
     local: '',
     visitante: '',
     categoria: base?.categoria || '',
@@ -59,6 +62,8 @@ export function validarFormulario(valores) {
   const errores = {};
   const importeCentimos = textoACentimos(valores.importe);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(valores.fecha)) errores.fecha = 'Indica la fecha';
+  // La hora es opcional
+  if (valores.hora && !/^\d{2}:\d{2}$/.test(valores.hora)) errores.hora = 'Hora no válida';
   if (!valores.local.trim()) errores.local = 'Indica el equipo local';
   if (!valores.visitante.trim()) errores.visitante = 'Indica el equipo visitante';
   if (!valores.categoria.trim()) errores.categoria = 'Indica la categoría';
@@ -125,6 +130,8 @@ export default function FormularioPartido({
     onGuardar(
       {
         fecha: valores.fecha,
+        // Vacía se envía como '' para que, al editar, se pueda quitar la hora que tuviera el partido
+        hora: valores.hora,
         local: valores.local.trim(),
         visitante: valores.visitante.trim(),
         categoria: valores.categoria.trim(),
@@ -144,16 +151,28 @@ export default function FormularioPartido({
 
   return (
     <form onSubmit={enviar} noValidate className="space-y-4">
-      <Campo id="fecha" etiqueta="Fecha" error={errores.fecha}>
-        <input
-          id="fecha"
-          type="date"
-          value={valores.fecha}
-          onChange={(e) => actualizar({ fecha: e.target.value })}
-          className={clasesEntrada(errores.fecha)}
-          {...propsError('fecha')}
-        />
-      </Campo>
+      <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] gap-3">
+        <Campo id="fecha" etiqueta="Fecha" error={errores.fecha}>
+          <input
+            id="fecha"
+            type="date"
+            value={valores.fecha}
+            onChange={(e) => actualizar({ fecha: e.target.value })}
+            className={clasesEntrada(errores.fecha)}
+            {...propsError('fecha')}
+          />
+        </Campo>
+        <Campo id="hora" etiqueta="Hora (opcional)" error={errores.hora}>
+          <input
+            id="hora"
+            type="time"
+            value={valores.hora}
+            onChange={(e) => actualizar({ hora: e.target.value })}
+            className={clasesEntrada(errores.hora)}
+            {...propsError('hora')}
+          />
+        </Campo>
+      </div>
 
       {/* Equipos con botón para intercambiarlos si se han puesto al revés */}
       <div className="relative space-y-4">
