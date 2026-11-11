@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mis-arbitrajes-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "mis-arbitrajes-produccion",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/servir-dist.mjs"],
+      "port": 4173
+    }
+  ]
+}

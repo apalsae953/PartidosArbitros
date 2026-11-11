@@ -1,0 +1,4 @@
+# Saltos de línea siempre en formato Unix (LF) dentro del repositorio
+* text=auto eol=lf
+*.png binary
+*.woff2 binary

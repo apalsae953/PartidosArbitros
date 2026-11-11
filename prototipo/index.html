@@ -1,0 +1,1362 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="description" content="Control de partidos e ingresos para árbitros." />
+  <title>Mis Arbitrajes</title>
+
+  <!-- PWA: manifiesto e iconos para instalar la app en la pantalla de inicio -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Arbitrajes" />
+
+  <!-- Tipografía -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS (CDN pensado para prototipado) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+
+  <!-- React y Babel (compila el JSX directamente en el navegador) -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+  <!-- PWA: registro del service worker y preparación de la instalación -->
+  <script>
+    // El service worker solo funciona en HTTPS o en localhost (no al abrir el archivo con doble clic)
+    if ('serviceWorker' in navigator && window.isSecureContext && location.protocol !== 'file:') {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js').catch((error) => {
+          console.warn('No se pudo registrar el service worker', error);
+        });
+      });
+    }
+
+    // Se guarda la oferta de instalación por si llega antes de que React arranque
+    window.addEventListener('beforeinstallprompt', (evento) => {
+      evento.preventDefault();
+      window.eventoInstalacionPendiente = evento;
+    });
+
+    // Pide al navegador que no borre los datos automáticamente cuando le falte espacio
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+  </script>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-slate-900 antialiased">
+  <div id="root">
+    <p style="padding: 2rem; font-family: system-ui, sans-serif; color: #64748b;">Cargando...</p>
+  </div>
+  <noscript>Esta aplicación necesita JavaScript para funcionar.</noscript>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // =========================================================================
+    // Configuración
+    // =========================================================================
+
+    const CLAVE_ALMACENAMIENTO = 'arbitro.partidos.v1';
+    const CLAVE_AVISO_CERRADO = 'arbitro.avisoDatos.cerrado';
+
+    // Sugerencias para el campo de categoría (se puede escribir cualquier otra)
+    const CATEGORIAS = [
+      'Prebenjamín',
+      'Benjamín',
+      'Alevín',
+      'Infantil',
+      'Cadete',
+      'Juvenil',
+      'Senior',
+      'Veteranos',
+    ];
+
+    const ESTADOS = {
+      PENDIENTE: 'pendiente',
+      COBRADO: 'cobrado',
+    };
+
+    const ETIQUETAS_ESTADO = {
+      [ESTADOS.PENDIENTE]: 'Pendiente',
+      [ESTADOS.COBRADO]: 'Cobrado',
+    };
+
+    // =========================================================================
+    // Utilidades
+    // =========================================================================
+
+    const formatoEuros = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
+    const formatoDia = new Intl.DateTimeFormat('es-ES', { day: '2-digit' });
+    const formatoMes = new Intl.DateTimeFormat('es-ES', { month: 'short' });
+    const formatoFechaLarga = new Intl.DateTimeFormat('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    // Los importes se guardan en céntimos (números enteros) para que las sumas sean exactas
+    function formatearCentimos(centimos) {
+      return formatoEuros.format(centimos / 100);
+    }
+
+    // Convierte lo que escribe el usuario ("25", "25,50", "25.5") a céntimos.
+    // Devuelve null si el texto no es un importe válido.
+    function textoACentimos(texto) {
+      const normalizado = String(texto).trim().replace(',', '.');
+      if (!/^\d+(\.\d{1,2})?$/.test(normalizado)) return null;
+      return Math.round(parseFloat(normalizado) * 100);
+    }
+
+    // Fecha de hoy en formato AAAA-MM-DD según la hora local (no UTC)
+    function fechaDeHoy() {
+      const hoy = new Date();
+      const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+      const dia = String(hoy.getDate()).padStart(2, '0');
+      return `${hoy.getFullYear()}-${mes}-${dia}`;
+    }
+
+    // Interpreta "AAAA-MM-DD" como fecha local para que no se desplace un día por la zona horaria
+    function parsearFecha(textoFecha) {
+      const [anio, mes, dia] = textoFecha.split('-').map(Number);
+      return new Date(anio, mes - 1, dia);
+    }
+
+    function generarId() {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+      return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    // =========================================================================
+    // Almacenamiento en localStorage
+    // =========================================================================
+
+    function esPartidoValido(partido) {
+      return (
+        partido &&
+        typeof partido.id === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(partido.fecha) &&
+        typeof partido.local === 'string' &&
+        typeof partido.visitante === 'string' &&
+        typeof partido.categoria === 'string' &&
+        Number.isInteger(partido.importeCentimos) &&
+        partido.importeCentimos >= 0 &&
+        Object.values(ESTADOS).includes(partido.estado)
+      );
+    }
+
+    function cargarPartidos() {
+      try {
+        const guardado = localStorage.getItem(CLAVE_ALMACENAMIENTO);
+        if (!guardado) return [];
+        const datos = JSON.parse(guardado);
+        return Array.isArray(datos) ? datos.filter(esPartidoValido) : [];
+      } catch (error) {
+        console.warn('No se pudieron leer los partidos guardados', error);
+        return [];
+      }
+    }
+
+    function guardarPartidos(partidos) {
+      try {
+        localStorage.setItem(CLAVE_ALMACENAMIENTO, JSON.stringify(partidos));
+      } catch (error) {
+        console.warn('No se pudieron guardar los partidos', error);
+      }
+    }
+
+    function avisoYaCerrado() {
+      try {
+        return localStorage.getItem(CLAVE_AVISO_CERRADO) === '1';
+      } catch {
+        return false;
+      }
+    }
+
+    function recordarAvisoCerrado() {
+      try {
+        localStorage.setItem(CLAVE_AVISO_CERRADO, '1');
+      } catch {
+        // Sin almacenamiento el aviso simplemente volverá a mostrarse
+      }
+    }
+
+    // =========================================================================
+    // Exportación (copia de seguridad)
+    // =========================================================================
+
+    function descargarArchivo(nombre, contenido, tipo) {
+      const blob = new Blob([contenido], { type: tipo });
+      const url = URL.createObjectURL(blob);
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = nombre;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      // Se libera la URL un poco después para no cortar la descarga en algunos navegadores
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // Copia completa en JSON: conserva todos los campos y sirve para restaurar los datos
+    function exportarJSON(partidos) {
+      const copia = {
+        aplicacion: 'Mis Arbitrajes',
+        version: 1,
+        exportadoEn: new Date().toISOString(),
+        partidos,
+      };
+      descargarArchivo(`arbitrajes-${fechaDeHoy()}.json`, JSON.stringify(copia, null, 2), 'application/json');
+    }
+
+    // Escapa un valor para CSV. Los textos que empiezan por =, +, - o @ se protegen
+    // para que Excel no los interprete como fórmulas.
+    function celdaCSV(valor) {
+      let texto = String(valor);
+      if (/^[=+\-@]/.test(texto)) texto = `'${texto}`;
+      return /[";\n\r]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
+    }
+
+    // CSV con separador ";" y coma decimal, que es lo que espera Excel en español
+    function exportarCSV(partidos) {
+      const cabecera = ['Fecha', 'Equipo local', 'Equipo visitante', 'Categoría', 'Importe (€)', 'Estado'];
+      const filas = [...partidos]
+        .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creadoEn - a.creadoEn)
+        .map((p) => [
+          p.fecha.split('-').reverse().join('/'),
+          p.local,
+          p.visitante,
+          p.categoria,
+          (p.importeCentimos / 100).toFixed(2).replace('.', ','),
+          ETIQUETAS_ESTADO[p.estado],
+        ]);
+      const contenido = [cabecera, ...filas].map((fila) => fila.map(celdaCSV).join(';')).join('\r\n');
+      // El BOM inicial hace que Excel lea bien las tildes y la ñ
+      descargarArchivo(`arbitrajes-${fechaDeHoy()}.csv`, '﻿' + contenido, 'text/csv;charset=utf-8');
+    }
+
+    // =========================================================================
+    // Importación (restaurar una copia de seguridad)
+    // =========================================================================
+
+    // Lee una copia exportada por la app (o un listado de partidos) y se queda solo con los válidos.
+    // Lanza un error si el texto no es JSON o no tiene el formato esperado.
+    function leerCopia(texto) {
+      const datos = JSON.parse(texto);
+      const lista = Array.isArray(datos) ? datos : datos && Array.isArray(datos.partidos) ? datos.partidos : null;
+      if (!lista) throw new Error('Formato de copia no reconocido');
+
+      const idsVistos = new Set();
+      const validos = [];
+      for (const partido of lista) {
+        if (!esPartidoValido(partido) || idsVistos.has(partido.id)) continue;
+        idsVistos.add(partido.id);
+        // Solo se copian los campos conocidos, ignorando cualquier otro que traiga el archivo
+        validos.push({
+          id: partido.id,
+          creadoEn: Number.isFinite(partido.creadoEn) ? partido.creadoEn : 0,
+          fecha: partido.fecha,
+          local: partido.local,
+          visitante: partido.visitante,
+          categoria: partido.categoria,
+          importeCentimos: partido.importeCentimos,
+          estado: partido.estado,
+        });
+      }
+      return { partidos: validos, descartados: lista.length - validos.length };
+    }
+
+    function textoPartidos(cantidad) {
+      return cantidad === 1 ? '1 partido' : `${cantidad} partidos`;
+    }
+
+    // =========================================================================
+    // Instalación como app (PWA)
+    // =========================================================================
+
+    function estaInstalada() {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    // Guarda el evento que ofrece el navegador para poder mostrar un botón "Instalar app" propio
+    function usarInstalacion() {
+      // El navegador puede ofrecerla antes de que React arranque; ese evento se guarda en el <head>
+      const [eventoInstalacion, setEventoInstalacion] = useState(() => window.eventoInstalacionPendiente || null);
+      const [instalada, setInstalada] = useState(estaInstalada);
+
+      useEffect(() => {
+        function alOfrecerInstalacion(evento) {
+          evento.preventDefault();
+          setEventoInstalacion(evento);
+        }
+        function alInstalar() {
+          setInstalada(true);
+          setEventoInstalacion(null);
+        }
+        window.addEventListener('beforeinstallprompt', alOfrecerInstalacion);
+        window.addEventListener('appinstalled', alInstalar);
+        return () => {
+          window.removeEventListener('beforeinstallprompt', alOfrecerInstalacion);
+          window.removeEventListener('appinstalled', alInstalar);
+        };
+      }, []);
+
+      async function instalar() {
+        if (!eventoInstalacion) return;
+        eventoInstalacion.prompt();
+        await eventoInstalacion.userChoice;
+        // La oferta del navegador solo se puede usar una vez
+        window.eventoInstalacionPendiente = null;
+        setEventoInstalacion(null);
+      }
+
+      return { puedeInstalar: Boolean(eventoInstalacion) && !instalada, instalada, instalar };
+    }
+
+    // =========================================================================
+    // Iconos SVG en línea (trazos de Lucide) para no depender de librerías externas
+    // =========================================================================
+
+    const TRAZOS_ICONOS = {
+      bandera: (
+        <>
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+          <line x1="4" x2="4" y1="22" y2="15" />
+        </>
+      ),
+      cartera: (
+        <>
+          <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
+          <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
+        </>
+      ),
+      circuloCheck: (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <path d="m9 12 2 2 4-4" />
+        </>
+      ),
+      reloj: (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </>
+      ),
+      check: <path d="M20 6 9 17l-5-5" />,
+      mas: (
+        <>
+          <path d="M5 12h14" />
+          <path d="M12 5v14" />
+        </>
+      ),
+      papelera: (
+        <>
+          <path d="M3 6h18" />
+          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+          <line x1="10" x2="10" y1="11" y2="17" />
+          <line x1="14" x2="14" y1="11" y2="17" />
+        </>
+      ),
+      deshacer: (
+        <>
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+        </>
+      ),
+      etiqueta: (
+        <>
+          <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" />
+          <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" />
+        </>
+      ),
+      alerta: (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" x2="12" y1="8" y2="12" />
+          <line x1="12" x2="12.01" y1="16" y2="16" />
+        </>
+      ),
+      portapapeles: (
+        <>
+          <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+          <path d="M12 11h4" />
+          <path d="M12 16h4" />
+          <path d="M8 11h.01" />
+          <path d="M8 16h.01" />
+        </>
+      ),
+      baseDatos: (
+        <>
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+          <path d="M3 12A9 3 0 0 0 21 12" />
+        </>
+      ),
+      triangulo: (
+        <>
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+          <path d="M12 9v4" />
+          <path d="M12 17h.01" />
+        </>
+      ),
+      cerrar: (
+        <>
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </>
+      ),
+      descargar: (
+        <>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" x2="12" y1="15" y2="3" />
+        </>
+      ),
+      escudo: (
+        <>
+          <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+          <path d="m9 12 2 2 4-4" />
+        </>
+      ),
+      movil: (
+        <>
+          <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+          <path d="M12 18h.01" />
+        </>
+      ),
+      subir: (
+        <>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" x2="12" y1="3" y2="15" />
+        </>
+      ),
+      hojaCalculo: (
+        <>
+          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+          <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+          <path d="M8 13h2" />
+          <path d="M14 13h2" />
+          <path d="M8 17h2" />
+          <path d="M14 17h2" />
+        </>
+      ),
+    };
+
+    function Icono({ nombre, className = 'h-5 w-5' }) {
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={className}
+          aria-hidden="true"
+        >
+          {TRAZOS_ICONOS[nombre]}
+        </svg>
+      );
+    }
+
+    // =========================================================================
+    // Panel de estadísticas
+    // =========================================================================
+
+    const TONOS_TARJETA = {
+      pizarra: { icono: 'bg-slate-900 text-white', valor: 'text-slate-900' },
+      verde: { icono: 'bg-emerald-50 text-emerald-600 ring-1 ring-inset ring-emerald-600/10', valor: 'text-emerald-600' },
+      ambar: { icono: 'bg-amber-50 text-amber-600 ring-1 ring-inset ring-amber-600/10', valor: 'text-amber-600' },
+    };
+
+    function TarjetaEstadistica({ titulo, valor, icono, tono, className = '', children }) {
+      const estilos = TONOS_TARJETA[tono];
+      return (
+        <article className={`rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5 ${className}`}>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-medium text-slate-500">{titulo}</h3>
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${estilos.icono}`}>
+              <Icono nombre={icono} />
+            </span>
+          </div>
+          <p className={`mt-3 text-xl font-semibold tracking-tight tabular-nums sm:text-2xl lg:text-3xl ${estilos.valor}`}>
+            {valor}
+          </p>
+          <div className="mt-2 text-xs text-slate-500">{children}</div>
+        </article>
+      );
+    }
+
+    function PanelEstadisticas({ partidos }) {
+      const resumen = useMemo(() => {
+        let total = 0;
+        let cobrado = 0;
+        let numPendientes = 0;
+        for (const partido of partidos) {
+          total += partido.importeCentimos;
+          if (partido.estado === ESTADOS.COBRADO) cobrado += partido.importeCentimos;
+          else numPendientes += 1;
+        }
+        return {
+          total,
+          cobrado,
+          pendiente: total - cobrado,
+          numPendientes,
+          porcentajeCobrado: total > 0 ? Math.round((cobrado / total) * 100) : 0,
+        };
+      }, [partidos]);
+
+      const numPartidos = partidos.length;
+
+      return (
+        <section aria-label="Resumen de ingresos" className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+          <TarjetaEstadistica
+            titulo="Total generado"
+            valor={formatearCentimos(resumen.total)}
+            icono="cartera"
+            tono="pizarra"
+            className="col-span-2 sm:col-span-1"
+          >
+            {numPartidos === 1 ? '1 partido registrado' : `${numPartidos} partidos registrados`}
+          </TarjetaEstadistica>
+
+          <TarjetaEstadistica titulo="Cobrado" valor={formatearCentimos(resumen.cobrado)} icono="circuloCheck" tono="verde">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${resumen.porcentajeCobrado}%` }}
+              />
+            </div>
+            <p className="mt-1.5">{resumen.porcentajeCobrado} % del total</p>
+          </TarjetaEstadistica>
+
+          <TarjetaEstadistica titulo="Pendiente" valor={formatearCentimos(resumen.pendiente)} icono="reloj" tono="ambar">
+            {resumen.numPendientes === 1 ? '1 partido por cobrar' : `${resumen.numPendientes} partidos por cobrar`}
+          </TarjetaEstadistica>
+        </section>
+      );
+    }
+
+    // =========================================================================
+    // Formulario de registro
+    // =========================================================================
+
+    function crearFormularioVacio() {
+      return {
+        fecha: fechaDeHoy(),
+        local: '',
+        visitante: '',
+        categoria: '',
+        importe: '',
+        estado: ESTADOS.PENDIENTE,
+      };
+    }
+
+    function clasesEntrada(conError) {
+      const base =
+        'block w-full rounded-lg border bg-white px-3 py-2.5 text-base text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:outline-none focus:ring-4 sm:text-sm';
+      return conError
+        ? `${base} border-red-300 focus:border-red-500 focus:ring-red-500/15`
+        : `${base} border-slate-300 focus:border-emerald-500 focus:ring-emerald-500/15`;
+    }
+
+    function Campo({ id, etiqueta, error, className = '', children }) {
+      return (
+        <div className={className}>
+          <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-slate-700">
+            {etiqueta}
+          </label>
+          {children}
+          {error && (
+            <p id={`${id}-error`} className="mt-1.5 flex items-center gap-1 text-xs text-red-600">
+              <Icono nombre="alerta" className="h-3.5 w-3.5 shrink-0" />
+              {error}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    function FormularioPartido({ onAgregar }) {
+      const [valores, setValores] = useState(crearFormularioVacio);
+      const [errores, setErrores] = useState({});
+      // Guarda el momento del último alta para mostrar un aviso temporal
+      const [ultimoAlta, setUltimoAlta] = useState(null);
+
+      useEffect(() => {
+        if (!ultimoAlta) return;
+        const temporizador = setTimeout(() => setUltimoAlta(null), 2500);
+        return () => clearTimeout(temporizador);
+      }, [ultimoAlta]);
+
+      function actualizar(campo, valor) {
+        setValores((actuales) => ({ ...actuales, [campo]: valor }));
+        // Al corregir un campo se oculta su mensaje de error
+        if (errores[campo]) setErrores((actuales) => ({ ...actuales, [campo]: undefined }));
+      }
+
+      function enviar(evento) {
+        evento.preventDefault();
+
+        const nuevosErrores = {};
+        const importeCentimos = textoACentimos(valores.importe);
+        if (!valores.fecha) nuevosErrores.fecha = 'Indica la fecha';
+        if (!valores.local.trim()) nuevosErrores.local = 'Indica el equipo local';
+        if (!valores.visitante.trim()) nuevosErrores.visitante = 'Indica el equipo visitante';
+        if (!valores.categoria.trim()) nuevosErrores.categoria = 'Indica la categoría';
+        if (importeCentimos === null || importeCentimos <= 0) nuevosErrores.importe = 'Importe no válido';
+
+        if (Object.keys(nuevosErrores).length > 0) {
+          setErrores(nuevosErrores);
+          return;
+        }
+
+        onAgregar({
+          fecha: valores.fecha,
+          local: valores.local.trim(),
+          visitante: valores.visitante.trim(),
+          categoria: valores.categoria.trim(),
+          importeCentimos,
+          estado: valores.estado,
+        });
+
+        // Se conservan fecha, categoría y estado para agilizar el registro de varios partidos seguidos
+        setValores((actuales) => ({ ...actuales, local: '', visitante: '', importe: '' }));
+        setErrores({});
+        setUltimoAlta(Date.now());
+      }
+
+      // Atributos de accesibilidad comunes a cada campo con posible error
+      function propsError(campo) {
+        return {
+          'aria-invalid': Boolean(errores[campo]),
+          'aria-describedby': errores[campo] ? `${campo}-error` : undefined,
+        };
+      }
+
+      return (
+        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-6">
+          <h2 className="text-base font-semibold text-slate-900">Registrar partido</h2>
+          <p className="mt-1 text-sm text-slate-500">Añade los datos del arbitraje.</p>
+
+          <form onSubmit={enviar} noValidate className="mt-5 space-y-4">
+            <Campo id="fecha" etiqueta="Fecha" error={errores.fecha}>
+              <input
+                id="fecha"
+                type="date"
+                value={valores.fecha}
+                onChange={(e) => actualizar('fecha', e.target.value)}
+                className={clasesEntrada(errores.fecha)}
+                {...propsError('fecha')}
+              />
+            </Campo>
+
+            <Campo id="local" etiqueta="Equipo local" error={errores.local}>
+              <input
+                id="local"
+                type="text"
+                autoComplete="off"
+                placeholder="Ej. CD Ribera"
+                value={valores.local}
+                onChange={(e) => actualizar('local', e.target.value)}
+                className={clasesEntrada(errores.local)}
+                {...propsError('local')}
+              />
+            </Campo>
+
+            <Campo id="visitante" etiqueta="Equipo visitante" error={errores.visitante}>
+              <input
+                id="visitante"
+                type="text"
+                autoComplete="off"
+                placeholder="Ej. UD Montaña"
+                value={valores.visitante}
+                onChange={(e) => actualizar('visitante', e.target.value)}
+                className={clasesEntrada(errores.visitante)}
+                {...propsError('visitante')}
+              />
+            </Campo>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Campo id="categoria" etiqueta="Categoría" error={errores.categoria}>
+                <input
+                  id="categoria"
+                  type="text"
+                  list="lista-categorias"
+                  autoComplete="off"
+                  placeholder="Ej. Juvenil"
+                  value={valores.categoria}
+                  onChange={(e) => actualizar('categoria', e.target.value)}
+                  className={clasesEntrada(errores.categoria)}
+                  {...propsError('categoria')}
+                />
+                <datalist id="lista-categorias">
+                  {CATEGORIAS.map((categoria) => (
+                    <option key={categoria} value={categoria} />
+                  ))}
+                </datalist>
+              </Campo>
+
+              <Campo id="importe" etiqueta="Importe" error={errores.importe}>
+                <div className="relative">
+                  <input
+                    id="importe"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    placeholder="0,00"
+                    value={valores.importe}
+                    onChange={(e) => actualizar('importe', e.target.value)}
+                    className={`${clasesEntrada(errores.importe)} pr-8 tabular-nums`}
+                    {...propsError('importe')}
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-slate-400">
+                    €
+                  </span>
+                </div>
+              </Campo>
+            </div>
+
+            <fieldset>
+              <legend className="mb-1.5 block text-sm font-medium text-slate-700">Estado de cobro</legend>
+              <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+                {[ESTADOS.PENDIENTE, ESTADOS.COBRADO].map((estado) => {
+                  const seleccionado = valores.estado === estado;
+                  const colorSeleccion = estado === ESTADOS.COBRADO ? 'text-emerald-700' : 'text-amber-700';
+                  return (
+                    <label
+                      key={estado}
+                      className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-500 ${
+                        seleccionado ? `bg-white shadow-sm ${colorSeleccion}` : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="estado"
+                        value={estado}
+                        checked={seleccionado}
+                        onChange={() => actualizar('estado', estado)}
+                        className="sr-only"
+                      />
+                      <Icono nombre={estado === ESTADOS.COBRADO ? 'circuloCheck' : 'reloj'} className="h-4 w-4" />
+                      {ETIQUETAS_ESTADO[estado]}
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30 active:scale-[0.99]"
+            >
+              <Icono nombre="mas" className="h-4 w-4" />
+              Añadir partido
+            </button>
+
+            <p
+              role="status"
+              className={`flex items-center justify-center gap-1.5 text-sm text-emerald-700 transition-opacity duration-300 ${
+                ultimoAlta ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              <Icono nombre="check" className="h-4 w-4" />
+              {ultimoAlta ? 'Partido añadido' : ''}
+            </p>
+          </form>
+        </section>
+      );
+    }
+
+    // =========================================================================
+    // Lista de partidos
+    // =========================================================================
+
+    function InsigniaEstado({ estado }) {
+      const cobrado = estado === ESTADOS.COBRADO;
+      return (
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+            cobrado ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' : 'bg-amber-50 text-amber-700 ring-amber-600/20'
+          }`}
+        >
+          <Icono nombre={cobrado ? 'check' : 'reloj'} className="h-3 w-3" />
+          {ETIQUETAS_ESTADO[estado]}
+        </span>
+      );
+    }
+
+    function TarjetaPartido({ partido, onAlternarEstado, onEliminar }) {
+      const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+      const cobrado = partido.estado === ESTADOS.COBRADO;
+      const fecha = parsearFecha(partido.fecha);
+
+      return (
+        <li className="flex gap-3 rounded-xl border border-slate-200 p-3 transition hover:border-slate-300 sm:gap-4 sm:p-4">
+          {/* Bloque de fecha tipo calendario */}
+          <div
+            className="flex w-14 shrink-0 flex-col items-center justify-center self-start rounded-lg bg-slate-50 py-2 text-center ring-1 ring-inset ring-slate-200"
+            title={formatoFechaLarga.format(fecha)}
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              {formatoMes.format(fecha).replace('.', '')}
+            </span>
+            <span className="text-xl font-bold leading-tight text-slate-900 tabular-nums">{formatoDia.format(fecha)}</span>
+            <span className="text-[11px] text-slate-400 tabular-nums">{fecha.getFullYear()}</span>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <p className="min-w-0 break-words font-semibold leading-snug text-slate-900">
+                {partido.local} <span className="font-normal text-slate-400">vs</span> {partido.visitante}
+              </p>
+              <p
+                className={`shrink-0 text-base font-semibold tabular-nums sm:text-lg ${
+                  cobrado ? 'text-emerald-600' : 'text-slate-900'
+                }`}
+              >
+                {formatearCentimos(partido.importeCentimos)}
+              </p>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                <Icono nombre="etiqueta" className="h-3 w-3" />
+                {partido.categoria}
+              </span>
+              <InsigniaEstado estado={partido.estado} />
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+              {confirmandoBorrado ? (
+                <>
+                  <span className="mr-auto text-sm text-slate-600">¿Eliminar este partido?</span>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoBorrado(false)}
+                    className="h-9 rounded-lg px-3 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onEliminar(partido.id)}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-red-600 px-3 text-sm font-medium text-white transition hover:bg-red-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-red-500/30"
+                  >
+                    <Icono nombre="papelera" className="h-4 w-4" />
+                    Eliminar
+                  </button>
+                </>
+              ) : (
+                <>
+                  {cobrado ? (
+                    <button
+                      type="button"
+                      onClick={() => onAlternarEstado(partido.id)}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                    >
+                      <Icono nombre="deshacer" className="h-4 w-4" />
+                      Marcar pendiente
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onAlternarEstado(partido.id)}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30"
+                    >
+                      <Icono nombre="check" className="h-4 w-4" />
+                      Marcar cobrado
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoBorrado(true)}
+                    aria-label={`Eliminar partido ${partido.local} contra ${partido.visitante}`}
+                    title="Eliminar"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                  >
+                    <Icono nombre="papelera" className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </li>
+      );
+    }
+
+    const FILTROS = [
+      { valor: 'todos', etiqueta: 'Todos' },
+      { valor: ESTADOS.PENDIENTE, etiqueta: 'Pendientes' },
+      { valor: ESTADOS.COBRADO, etiqueta: 'Cobrados' },
+    ];
+
+    function ListaPartidos({ partidos, onAlternarEstado, onEliminar }) {
+      const [filtro, setFiltro] = useState('todos');
+
+      // Del más reciente al más antiguo; a igual fecha, el último registrado primero
+      const ordenados = useMemo(
+        () => [...partidos].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creadoEn - a.creadoEn),
+        [partidos]
+      );
+
+      const visibles = filtro === 'todos' ? ordenados : ordenados.filter((p) => p.estado === filtro);
+
+      function contar(valorFiltro) {
+        return valorFiltro === 'todos' ? partidos.length : partidos.filter((p) => p.estado === valorFiltro).length;
+      }
+
+      return (
+        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base font-semibold text-slate-900">Partidos registrados</h2>
+
+            <div className="flex gap-1 rounded-lg bg-slate-100 p-1" role="group" aria-label="Filtrar por estado">
+              {FILTROS.map(({ valor, etiqueta }) => {
+                const activo = filtro === valor;
+                return (
+                  <button
+                    key={valor}
+                    type="button"
+                    aria-pressed={activo}
+                    onClick={() => setFiltro(valor)}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:flex-none ${
+                      activo ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {etiqueta}
+                    <span className={`text-xs tabular-nums ${activo ? 'text-slate-500' : 'text-slate-400'}`}>
+                      {contar(valor)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {partidos.length === 0 ? (
+            <div className="mt-6 flex flex-col items-center rounded-xl border border-dashed border-slate-300 px-6 py-12 text-center">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                <Icono nombre="portapapeles" className="h-6 w-6" />
+              </span>
+              <p className="mt-4 font-medium text-slate-900">Aún no hay partidos</p>
+              <p className="mt-1 text-sm text-slate-500">Usa el formulario para registrar tu primer arbitraje.</p>
+            </div>
+          ) : visibles.length === 0 ? (
+            <p className="mt-6 rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+              No hay partidos {filtro === ESTADOS.COBRADO ? 'cobrados' : 'pendientes'}.
+            </p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {visibles.map((partido) => (
+                <TarjetaPartido
+                  key={partido.id}
+                  partido={partido}
+                  onAlternarEstado={onAlternarEstado}
+                  onEliminar={onEliminar}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
+      );
+    }
+
+    // =========================================================================
+    // Aviso sobre dónde se guardan los datos
+    // =========================================================================
+
+    function AvisoDatos({ hayDatos, instalada, puedeInstalar, onInstalar, onExportar, onCerrar }) {
+      return (
+        <section
+          aria-labelledby="aviso-datos-titulo"
+          className="rounded-2xl bg-amber-50 p-4 shadow-sm ring-1 ring-amber-200 sm:p-5"
+        >
+          <div className="flex gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+              <Icono nombre="triangulo" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <h2 id="aviso-datos-titulo" className="pt-1.5 font-semibold text-amber-900">
+                  Atención
+                </h2>
+                <button
+                  type="button"
+                  onClick={onCerrar}
+                  aria-label="Cerrar aviso"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-amber-700 transition hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                >
+                  <Icono nombre="cerrar" className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="text-sm leading-relaxed text-amber-900/90">
+                Los datos de tus partidos se guardan en la memoria de este navegador. Si borras el historial, el caché o
+                las cookies de tu navegador, <strong className="font-semibold">perderás toda la información</strong>. Se
+                recomienda instalar la app o no borrar los datos del sitio.
+              </p>
+              {!instalada && (
+                <p className="mt-2 text-xs leading-relaxed text-amber-900/70">
+                  Para instalarla: en Android, menú del navegador &gt; «Instalar aplicación». En iPhone, botón Compartir
+                  &gt; «Añadir a pantalla de inicio».
+                </p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {puedeInstalar && (
+                  <button
+                    type="button"
+                    onClick={onInstalar}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/30"
+                  >
+                    <Icono nombre="movil" className="h-4 w-4" />
+                    Instalar app
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onExportar}
+                  disabled={!hayDatos}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-amber-900 ring-1 ring-inset ring-amber-300 transition hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Icono nombre="descargar" className="h-4 w-4" />
+                  Exportar mis datos
+                </button>
+                <button
+                  type="button"
+                  onClick={onCerrar}
+                  className="h-9 rounded-lg px-3 text-sm font-medium text-amber-800 transition hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                >
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    // =========================================================================
+    // Copia de seguridad
+    // =========================================================================
+
+    function CopiaSeguridad({ partidos, onImportar }) {
+      const hayDatos = partidos.length > 0;
+      const refArchivo = useRef(null);
+      // Copia leída del archivo, pendiente de que el usuario confirme cómo importarla
+      const [importacion, setImportacion] = useState(null);
+      const [mensaje, setMensaje] = useState(null);
+
+      async function alElegirArchivo(evento) {
+        const archivo = evento.target.files[0];
+        // Se vacía el selector para poder volver a elegir el mismo archivo
+        evento.target.value = '';
+        if (!archivo) return;
+        setMensaje(null);
+        setImportacion(null);
+
+        try {
+          const { partidos: importados, descartados } = leerCopia(await archivo.text());
+          if (importados.length === 0) {
+            setMensaje({ tipo: 'error', texto: 'El archivo no contiene ningún partido válido.' });
+            return;
+          }
+          const idsActuales = new Set(partidos.map((p) => p.id));
+          setImportacion({
+            nombre: archivo.name,
+            partidos: importados,
+            nuevos: importados.filter((p) => !idsActuales.has(p.id)).length,
+            descartados,
+          });
+        } catch (error) {
+          console.warn('No se pudo leer la copia', error);
+          setMensaje({
+            tipo: 'error',
+            texto: 'No se pudo leer el archivo. Elige una copia .json exportada desde esta app.',
+          });
+        }
+      }
+
+      function confirmarImportacion(modo) {
+        onImportar(importacion.partidos, modo);
+        setMensaje({
+          tipo: 'exito',
+          texto:
+            modo === 'reemplazar'
+              ? `Copia restaurada: ${textoPartidos(importacion.partidos.length)}.`
+              : `Se han añadido ${textoPartidos(importacion.nuevos)}.`,
+        });
+        setImportacion(null);
+      }
+
+      return (
+        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-6">
+          <div className="flex items-center gap-2">
+            <Icono nombre="escudo" className="h-5 w-5 text-emerald-600" />
+            <h2 className="text-base font-semibold text-slate-900">Copia de seguridad</h2>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Descarga tus partidos por si se borran los datos del navegador. Guarda el archivo en un lugar seguro.
+          </p>
+
+          <div className="mt-4 grid gap-2">
+            <button
+              type="button"
+              onClick={() => exportarJSON(partidos)}
+              disabled={!hayDatos}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Icono nombre="descargar" className="h-4 w-4" />
+              Exportar mis datos
+              <span className="font-normal text-slate-400">.json</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => exportarCSV(partidos)}
+              disabled={!hayDatos}
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Icono nombre="hojaCalculo" className="h-4 w-4" />
+              Exportar para Excel
+              <span className="font-normal text-slate-400">.csv</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => refArchivo.current.click()}
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+            >
+              <Icono nombre="subir" className="h-4 w-4" />
+              Importar copia
+              <span className="font-normal text-slate-400">.json</span>
+            </button>
+            <input
+              ref={refArchivo}
+              type="file"
+              accept=".json,application/json"
+              onChange={alElegirArchivo}
+              className="hidden"
+            />
+          </div>
+
+          {!hayDatos && !importacion && !mensaje && (
+            <p className="mt-3 text-xs text-slate-400">Aún no hay partidos que exportar.</p>
+          )}
+
+          {/* Confirmación antes de tocar los datos actuales */}
+          {importacion && (
+            <div className="mt-4 rounded-xl bg-slate-50 p-4 ring-1 ring-inset ring-slate-200">
+              <p className="break-all text-sm font-medium text-slate-900">{importacion.nombre}</p>
+              <p className="mt-1 text-sm text-slate-600">
+                Contiene {textoPartidos(importacion.partidos.length)}
+                {hayDatos && `, de los que ${importacion.nuevos === 1 ? '1 es nuevo' : `${importacion.nuevos} son nuevos`}`}.
+                {importacion.descartados > 0 &&
+                  ` Se ignorarán ${importacion.descartados} registros no válidos o repetidos.`}
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {hayDatos ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => confirmarImportacion('combinar')}
+                      disabled={importacion.nuevos === 0}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Icono nombre="mas" className="h-4 w-4" />
+                      Añadir los nuevos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => confirmarImportacion('reemplazar')}
+                      className="h-9 rounded-lg bg-white px-3 text-sm font-medium text-red-700 ring-1 ring-inset ring-red-200 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                    >
+                      Reemplazar todo
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => confirmarImportacion('reemplazar')}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/30"
+                  >
+                    <Icono nombre="subir" className="h-4 w-4" />
+                    Restaurar copia
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setImportacion(null)}
+                  className="h-9 rounded-lg px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                >
+                  Cancelar
+                </button>
+              </div>
+
+              {hayDatos && (
+                <p className="mt-3 text-xs text-slate-500">
+                  «Reemplazar todo» borra los {textoPartidos(partidos.length)} actuales y deja solo los del archivo.
+                </p>
+              )}
+            </div>
+          )}
+
+          {mensaje && (
+            <p
+              role="status"
+              className={`mt-3 flex items-start gap-1.5 text-sm ${
+                mensaje.tipo === 'error' ? 'text-red-600' : 'text-emerald-700'
+              }`}
+            >
+              <Icono
+                nombre={mensaje.tipo === 'error' ? 'alerta' : 'check'}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              {mensaje.texto}
+            </p>
+          )}
+        </section>
+      );
+    }
+
+    // =========================================================================
+    // Aplicación
+    // =========================================================================
+
+    function App() {
+      const [partidos, setPartidos] = useState(cargarPartidos);
+      const [avisoVisible, setAvisoVisible] = useState(() => !avisoYaCerrado());
+      const { puedeInstalar, instalada, instalar } = usarInstalacion();
+
+      function cerrarAviso() {
+        recordarAvisoCerrado();
+        setAvisoVisible(false);
+      }
+
+      // Cada cambio se persiste en localStorage
+      useEffect(() => {
+        guardarPartidos(partidos);
+      }, [partidos]);
+
+      function agregarPartido(datos) {
+        setPartidos((actuales) => [...actuales, { id: generarId(), creadoEn: Date.now(), ...datos }]);
+      }
+
+      function alternarEstado(id) {
+        setPartidos((actuales) =>
+          actuales.map((partido) =>
+            partido.id === id
+              ? {
+                  ...partido,
+                  estado: partido.estado === ESTADOS.COBRADO ? ESTADOS.PENDIENTE : ESTADOS.COBRADO,
+                }
+              : partido
+          )
+        );
+      }
+
+      function eliminarPartido(id) {
+        setPartidos((actuales) => actuales.filter((partido) => partido.id !== id));
+      }
+
+      // "combinar" añade solo los partidos que aún no existen; "reemplazar" sustituye todos los datos
+      function importarPartidos(importados, modo) {
+        setPartidos((actuales) => {
+          if (modo === 'reemplazar') return importados;
+          const idsActuales = new Set(actuales.map((partido) => partido.id));
+          return [...actuales, ...importados.filter((partido) => !idsActuales.has(partido.id))];
+        });
+      }
+
+      return (
+        <>
+          <header className="bg-slate-900 pb-24 sm:pb-28">
+            <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 pt-6 sm:px-6 sm:pt-8">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-slate-900">
+                <Icono nombre="bandera" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg font-semibold text-white sm:text-xl">Mis Arbitrajes</h1>
+                <p className="text-sm text-slate-400">Control de partidos e ingresos</p>
+              </div>
+              {puedeInstalar && (
+                <button
+                  type="button"
+                  onClick={instalar}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white/10 px-3 text-sm font-medium text-white ring-1 ring-inset ring-white/15 transition hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                >
+                  <Icono nombre="movil" className="h-4 w-4" />
+                  Instalar app
+                </button>
+              )}
+            </div>
+          </header>
+
+          <main className="mx-auto -mt-16 max-w-6xl space-y-6 px-4 pb-8 sm:-mt-20 sm:px-6">
+            {avisoVisible && (
+              <AvisoDatos
+                hayDatos={partidos.length > 0}
+                instalada={instalada}
+                puedeInstalar={puedeInstalar}
+                onInstalar={instalar}
+                onExportar={() => exportarJSON(partidos)}
+                onCerrar={cerrarAviso}
+              />
+            )}
+
+            <PanelEstadisticas partidos={partidos} />
+
+            <div className="grid items-start gap-6 lg:grid-cols-[380px_1fr]">
+              <div className="space-y-6">
+                <FormularioPartido onAgregar={agregarPartido} />
+                <CopiaSeguridad partidos={partidos} onImportar={importarPartidos} />
+              </div>
+              <ListaPartidos partidos={partidos} onAlternarEstado={alternarEstado} onEliminar={eliminarPartido} />
+            </div>
+          </main>
+
+          <footer className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 pb-8 text-xs text-slate-500 sm:px-6">
+            <span className="flex items-center gap-1.5">
+              <Icono nombre="baseDatos" className="h-3.5 w-3.5" />
+              Los datos se guardan en este navegador.
+            </span>
+            {!avisoVisible && (
+              <button
+                type="button"
+                onClick={() => setAvisoVisible(true)}
+                className="font-medium text-slate-600 underline decoration-slate-300 underline-offset-2 hover:text-slate-900"
+              >
+                Ver aviso sobre tus datos
+              </button>
+            )}
+          </footer>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
