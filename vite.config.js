@@ -33,6 +33,7 @@ export default defineConfig({
       injectRegister: false,
       includeAssets: ['icons/icon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
+        id: '/',
         name: 'Mis Arbitrajes',
         short_name: 'Arbitrajes',
         description: 'Control de partidos e ingresos para árbitros.',

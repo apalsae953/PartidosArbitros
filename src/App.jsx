@@ -5,6 +5,7 @@ import Cabecera from './components/Cabecera.jsx';
 import CopiaSeguridad from './components/CopiaSeguridad.jsx';
 import DialogoCuenta from './components/DialogoCuenta.jsx';
 import DialogoImportarPdf from './components/DialogoImportarPdf.jsx';
+import DialogoInstalar from './components/DialogoInstalar.jsx';
 import DialogoPartido from './components/DialogoPartido.jsx';
 import GraficoMensual from './components/GraficoMensual.jsx';
 import Icono from './components/Icono.jsx';
@@ -28,7 +29,7 @@ import {
 } from './lib/almacenamiento.js';
 import { ESTADOS } from './lib/constantes.js';
 import { combinarPartidos, exportarJSON } from './lib/copiaSeguridad.js';
-import { esIOS as detectarIOS } from './lib/dispositivo.js';
+import { detectarPlataforma } from './lib/dispositivo.js';
 import { centimosATexto, generarId, ordenarPorFecha, textoPartidos } from './lib/formato.js';
 import { analizarPdfs, buscarDuplicado, esPdf } from './lib/importarPdf.js';
 import { leerPaginasPdf } from './lib/leerPdf.js';
@@ -43,7 +44,8 @@ import {
   temporadasDisponibles,
 } from './lib/temporadas.js';
 
-const ES_IOS = detectarIOS();
+const PLATAFORMA = detectarPlataforma();
+const ES_IOS = PLATAFORMA.sistema === 'ios';
 const FILTROS_INICIALES = { mes: null, estado: 'todos', busqueda: '' };
 // Accesos rápidos de categoría mientras el usuario aún no tiene partidos propios
 const CATEGORIAS_POR_DEFECTO = ['Alevín', 'Infantil', 'Cadete', 'Juvenil', 'Senior'];
@@ -83,6 +85,15 @@ export default function App() {
   const [avisoVisible, setAvisoVisible] = useState(() => !avisoYaCerrado());
   const [ultimaCopia, setUltimaCopia] = useState(leerUltimaCopia);
   const { puedeInstalar, instalada, instalar } = usarInstalacion();
+  const [ayudaInstalar, setAyudaInstalar] = useState({ abierto: false, apertura: 0 });
+  // En el móvil se ofrece instalar siempre (si el navegador no da botón propio, se explican los pasos);
+  // en el ordenador, solo cuando el navegador lo permite directamente
+  const mostrarInstalar = !instalada && (puedeInstalar || PLATAFORMA.sistema !== 'escritorio');
+
+  function pedirInstalacion() {
+    if (puedeInstalar) instalar();
+    else setAyudaInstalar((actual) => ({ abierto: true, apertura: actual.apertura + 1 }));
+  }
 
   // Al terminar de cargar los partidos de la nube se elige la temporada adecuada para ellos
   const nubeCargada = enNube && !nube.cargando;
@@ -369,8 +380,8 @@ export default function App() {
         temporada={temporada}
         temporadas={temporadas}
         onCambiarTemporada={cambiarTemporada}
-        puedeInstalar={puedeInstalar}
-        onInstalar={instalar}
+        puedeInstalar={mostrarInstalar}
+        onInstalar={pedirInstalacion}
         onNuevo={() => abrirNuevo()}
         onImportarPdf={elegirPdf}
         cuenta={datosCuenta}
@@ -395,9 +406,9 @@ export default function App() {
           <AvisoDatos
             hayDatos={partidos.length > 0}
             instalada={instalada}
-            puedeInstalar={puedeInstalar}
+            puedeInstalar={mostrarInstalar}
             esIOS={ES_IOS}
-            onInstalar={instalar}
+            onInstalar={pedirInstalacion}
             onExportar={exportarCopia}
             onCrearCuenta={sesion.estado === 'invitado' ? abrirCuenta : undefined}
             onCerrar={cerrarAvisoDatos}
@@ -488,6 +499,13 @@ export default function App() {
           onCerrar={cerrarCuenta}
         />
       )}
+
+      <DialogoInstalar
+        abierto={ayudaInstalar.abierto}
+        apertura={ayudaInstalar.apertura}
+        plataforma={PLATAFORMA}
+        onCerrar={() => setAyudaInstalar((actual) => ({ ...actual, abierto: false }))}
+      />
 
       <DialogoImportarPdf
         importacion={importacion}
