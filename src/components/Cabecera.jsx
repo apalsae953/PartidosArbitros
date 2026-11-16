@@ -36,6 +36,8 @@ export default function Cabecera({
   onImportarPdf,
   cuenta,
   onCuenta,
+  vista,
+  onCambiarVista,
 }) {
   return (
     <header className="relative overflow-hidden bg-slate-950 pb-28 sm:pb-32">
@@ -115,11 +117,38 @@ export default function Cabecera({
           )}
         </div>
 
-        <div className="mt-6 flex items-center gap-2">
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          {/* Pestañas de las dos vistas principales */}
+          <nav aria-label="Vistas" className="flex rounded-full bg-white/10 p-1 ring-1 ring-inset ring-white/15">
+            {[
+              ['partidos', 'Partidos', 'lista'],
+              ['calendario', 'Calendario', 'calendario'],
+            ].map(([valor, etiqueta, icono]) => {
+              const activa = vista === valor;
+              return (
+                <a
+                  key={valor}
+                  href={valor === 'partidos' ? '#' : `#${valor}`}
+                  aria-current={activa ? 'page' : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onCambiarVista(valor);
+                  }}
+                  className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                    activa ? 'bg-white text-slate-950' : 'text-slate-200 hover:text-white'
+                  }`}
+                >
+                  <Icono nombre={icono} className="h-4 w-4" />
+                  {etiqueta}
+                </a>
+              );
+            })}
+          </nav>
+
           <label htmlFor="temporada" className="sr-only">
             Temporada
           </label>
-          <div className="relative">
+          <div className={`relative ${vista === 'partidos' ? '' : 'hidden'}`}>
             <select
               id="temporada"
               value={temporada}

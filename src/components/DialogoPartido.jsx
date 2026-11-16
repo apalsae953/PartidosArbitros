@@ -2,25 +2,15 @@ import FormularioPartido from './FormularioPartido.jsx';
 import Icono from './Icono.jsx';
 import VentanaModal from './VentanaModal.jsx';
 
-// Datos que solo tienen los partidos importados de un PDF de designación (no se editan a mano)
+// El nº de designación solo lo tienen los partidos importados de PDF y no se edita a mano
+// (la hora y el campo sí, desde el formulario)
 function DatosDesignacion({ partido }) {
-  if (!partido.designacion && !partido.hora && !partido.campo) return null;
+  if (!partido.designacion) return null;
   return (
-    <div className="mb-5 space-y-1 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-600 ring-1 ring-inset ring-slate-200">
-      {partido.designacion && (
-        <p className="flex items-center gap-1.5">
-          <Icono nombre="documento" className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-          Designación nº {partido.designacion}
-          {partido.hora && <> · {partido.hora} h</>}
-        </p>
-      )}
-      {partido.campo && (
-        <p className="flex items-start gap-1.5">
-          <Icono nombre="ubicacion" className="mt-px h-3.5 w-3.5 shrink-0 text-slate-400" />
-          {partido.campo}
-        </p>
-      )}
-    </div>
+    <p className="mb-5 flex items-center gap-1.5 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-600 ring-1 ring-inset ring-slate-200">
+      <Icono nombre="documento" className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+      Importado del PDF de designación nº {partido.designacion}
+    </p>
   );
 }
 

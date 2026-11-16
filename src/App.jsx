@@ -15,6 +15,7 @@ import Notificacion from './components/Notificacion.jsx';
 import PanelEstadisticas from './components/PanelEstadisticas.jsx';
 import PieLegal from './components/PieLegal.jsx';
 import RecordatorioCopia, { diasSinCopia } from './components/RecordatorioCopia.jsx';
+import VistaCalendario from './components/VistaCalendario.jsx';
 import { usarInstalacion } from './hooks/usarInstalacion.js';
 import { usarPartidos } from './hooks/usarPartidos.js';
 import { usarSesion } from './hooks/usarSesion.js';
@@ -50,6 +51,10 @@ const FILTROS_INICIALES = { mes: null, estado: 'todos', busqueda: '' };
 // Accesos rápidos de categoría mientras el usuario aún no tiene partidos propios
 const CATEGORIAS_POR_DEFECTO = ['Alevín', 'Infantil', 'Cadete', 'Juvenil', 'Senior'];
 
+function vistaDeLaDireccion() {
+  return window.location.hash === '#calendario' ? 'calendario' : 'partidos';
+}
+
 function prefiereMenosMovimiento() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
@@ -71,6 +76,20 @@ export default function App() {
 
   const [temporada, setTemporada] = useState(() => temporadaInicial(partidos));
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
+  // Vista principal: lista de partidos o calendario. Va en la dirección (#calendario) para que el botón
+  // "atrás" del móvil funcione y se pueda abrir directamente
+  const [vista, setVista] = useState(vistaDeLaDireccion);
+  useEffect(() => {
+    const alCambiarDireccion = () => setVista(vistaDeLaDireccion());
+    window.addEventListener('hashchange', alCambiarDireccion);
+    return () => window.removeEventListener('hashchange', alCambiarDireccion);
+  }, []);
+
+  function cambiarVista(nueva) {
+    if (nueva === vista) return;
+    window.location.hash = nueva === 'calendario' ? 'calendario' : '';
+    window.scrollTo({ top: 0 });
+  }
   const [dialogo, setDialogo] = useState({ abierto: false, partido: null, base: null, apertura: 0 });
   const [importacion, setImportacion] = useState({
     abierto: false,
@@ -247,6 +266,7 @@ export default function App() {
     if (otro) {
       abrirNuevo({
         fecha: datos.fecha,
+        campo: datos.campo,
         categoria: datos.categoria,
         importe: centimosATexto(datos.importeCentimos),
         estado: datos.estado,
@@ -386,6 +406,8 @@ export default function App() {
         onImportarPdf={elegirPdf}
         cuenta={datosCuenta}
         onCuenta={abrirCuenta}
+        vista={vista}
+        onCambiarVista={cambiarVista}
       />
 
       <main className="relative mx-auto -mt-20 max-w-6xl space-y-4 px-4 pb-28 sm:-mt-24 sm:space-y-6 sm:px-6 sm:pb-10">
@@ -415,55 +437,68 @@ export default function App() {
           />
         )}
 
-        <PanelEstadisticas
-          partidos={partidosTemporada}
-          etiquetaPeriodo={conGrafico ? nombreTemporada(temporada) : 'Histórico'}
-          onVerPendientes={verPendientes}
-        />
+        {vista === 'calendario' ? (
+          <VistaCalendario
+            // Se reinicia al terminar de cargar los partidos, para que empiece en el día del próximo partido
+            key={cargandoDatos ? 'cargando' : 'listo'}
+            partidos={partidos}
+            onEditar={abrirEdicion}
+            onNuevo={abrirNuevo}
+            onImportarPdf={elegirPdf}
+          />
+        ) : (
+          <>
+            <PanelEstadisticas
+              partidos={partidosTemporada}
+              etiquetaPeriodo={conGrafico ? nombreTemporada(temporada) : 'Histórico'}
+              onVerPendientes={verPendientes}
+            />
 
-        {diasRecordatorio !== null && <RecordatorioCopia dias={diasRecordatorio} onExportar={exportarCopia} />}
+            {diasRecordatorio !== null && <RecordatorioCopia dias={diasRecordatorio} onExportar={exportarCopia} />}
 
-        {/* En escritorio: lista a la izquierda; gráfico y datos a la derecha. En móvil, apilados. */}
-        <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr]">
-          {conGrafico && (
-            <div className="lg:col-start-2 lg:row-start-1">
-              <GraficoMensual
-                partidos={partidosTemporada}
-                temporada={temporada}
-                mesSeleccionado={filtros.mes}
-                onSeleccionarMes={(mes) => cambiarFiltros({ mes })}
-              />
+            {/* En escritorio: lista a la izquierda; gráfico y datos a la derecha. En móvil, apilados. */}
+            <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr]">
+              {conGrafico && (
+                <div className="lg:col-start-2 lg:row-start-1">
+                  <GraficoMensual
+                    partidos={partidosTemporada}
+                    temporada={temporada}
+                    mesSeleccionado={filtros.mes}
+                    onSeleccionarMes={(mes) => cambiarFiltros({ mes })}
+                  />
+                </div>
+              )}
+
+              <div className="lg:col-start-1 lg:row-span-2 lg:row-start-1">
+                <ListaPartidos
+                  partidos={partidosVisibles}
+                  hayPartidos={partidos.length > 0}
+                  cargando={cargandoDatos}
+                  filtros={filtros}
+                  onCambiarFiltros={cambiarFiltros}
+                  onQuitarFiltros={() => setFiltros(FILTROS_INICIALES)}
+                  resaltadoId={resaltadoId}
+                  onEditar={abrirEdicion}
+                  onAlternarEstado={alternarEstado}
+                  onNuevo={() => abrirNuevo()}
+                  onImportarPdf={elegirPdf}
+                />
+              </div>
+
+              <div className={`lg:col-start-2 ${conGrafico ? 'lg:row-start-2' : 'lg:row-start-1'}`}>
+                <CopiaSeguridad
+                  partidos={partidos}
+                  ultimaCopia={ultimaCopia}
+                  onExportarJSON={exportarCopia}
+                  onImportar={importarPartidos}
+                  onVerAviso={verAvisoDatos}
+                  cuenta={sesion.estado === 'sin-cuentas' ? null : { enNube, email: datosCuenta.email, nube }}
+                  onCuenta={abrirCuenta}
+                />
+              </div>
             </div>
-          )}
-
-          <div className="lg:col-start-1 lg:row-span-2 lg:row-start-1">
-            <ListaPartidos
-              partidos={partidosVisibles}
-              hayPartidos={partidos.length > 0}
-              cargando={cargandoDatos}
-              filtros={filtros}
-              onCambiarFiltros={cambiarFiltros}
-              onQuitarFiltros={() => setFiltros(FILTROS_INICIALES)}
-              resaltadoId={resaltadoId}
-              onEditar={abrirEdicion}
-              onAlternarEstado={alternarEstado}
-              onNuevo={() => abrirNuevo()}
-              onImportarPdf={elegirPdf}
-            />
-          </div>
-
-          <div className={`lg:col-start-2 ${conGrafico ? 'lg:row-start-2' : 'lg:row-start-1'}`}>
-            <CopiaSeguridad
-              partidos={partidos}
-              ultimaCopia={ultimaCopia}
-              onExportarJSON={exportarCopia}
-              onImportar={importarPartidos}
-              onVerAviso={verAvisoDatos}
-              cuenta={sesion.estado === 'sin-cuentas' ? null : { enNube, email: datosCuenta.email, nube }}
-              onCuenta={abrirCuenta}
-            />
-          </div>
-        </div>
+          </>
+        )}
       </main>
 
       <PieLegal />

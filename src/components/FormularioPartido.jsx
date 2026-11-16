@@ -11,6 +11,7 @@ function valoresIniciales(partido, base) {
     return {
       fecha: partido.fecha,
       hora: partido.hora || '',
+      campo: partido.campo || '',
       local: partido.local,
       visitante: partido.visitante,
       categoria: partido.categoria,
@@ -22,6 +23,8 @@ function valoresIniciales(partido, base) {
     fecha: base?.fecha || fechaDeHoy(),
     // La hora no se arrastra con "Guardar y otro": el siguiente partido suele ser a otra hora
     hora: '',
+    // El campo sí se mantiene: en los torneos se pitan varios partidos seguidos en el mismo sitio
+    campo: base?.campo || '',
     local: '',
     visitante: '',
     categoria: base?.categoria || '',
@@ -132,6 +135,7 @@ export default function FormularioPartido({
         fecha: valores.fecha,
         // Vacía se envía como '' para que, al editar, se pueda quitar la hora que tuviera el partido
         hora: valores.hora,
+        campo: valores.campo.trim(),
         local: valores.local.trim(),
         visitante: valores.visitante.trim(),
         categoria: valores.categoria.trim(),
@@ -215,6 +219,19 @@ export default function FormularioPartido({
           <Icono nombre="intercambiar" className="h-3.5 w-3.5 rotate-90" />
         </button>
       </div>
+
+      <Campo id="campo" etiqueta="Campo o lugar (opcional)">
+        <input
+          id="campo"
+          type="text"
+          autoComplete="off"
+          maxLength={MAX_TEXTO * 2}
+          placeholder="Ej. Vera - Campo Las Viñas"
+          value={valores.campo}
+          onChange={(e) => actualizar({ campo: e.target.value })}
+          className={clasesEntrada(false)}
+        />
+      </Campo>
 
       <Campo id="categoria" etiqueta="Categoría" error={errores.categoria}>
         <input
