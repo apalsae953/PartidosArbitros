@@ -38,6 +38,34 @@ describe('analizarPdfs', () => {
     expect(resultados[0].partido.local).toBe('C.D. VERA');
   });
 
+  it('separa un PDF con varias designaciones en un partido por cada una', async () => {
+    const recibo = (numero, club) =>
+      `Designación Nº: ${numero} Pendiente por recibir de manera telemática del club ${club} de Pueblo la cantidad de 10,16`;
+    const liquidacion = 'LIQUIDACIÓN GASTOS PARTIDO Firma del árbitro';
+    const resultados = await analizarPdfs(
+      [
+        pdf('juntos.pdf', [
+          designacion('3001', '14-11-2026', 'C.D. VERA', 'CARBONERAS C.F.'),
+          recibo('3001', 'C.D. VERA'),
+          liquidacion,
+          designacion('3002', '15-11-2026', 'U.D. A', 'U.D. B'),
+          recibo('3002', 'U.D. A'),
+          // Repetida dentro del mismo archivo
+          designacion('3001', '14-11-2026', 'C.D. VERA', 'CARBONERAS C.F.'),
+        ]),
+        pdf('suelto.pdf', [designacion('3003', '16-11-2026', 'C.D. C', 'C.D. D')]),
+      ],
+      [],
+      leerFalso
+    );
+    expect(resultados.map((r) => [r.id, r.partido.designacion, r.parte, r.partes, r.duplicado])).toEqual([
+      ['0-juntos.pdf-1', '3001', 1, 3, false],
+      ['0-juntos.pdf-2', '3002', 2, 3, false],
+      ['0-juntos.pdf-3', '3001', 3, 3, true],
+      ['1-suelto.pdf', '3003', undefined, undefined, false],
+    ]);
+  });
+
   it('explica por qué no se ha podido leer cada archivo', async () => {
     const protegido = Object.assign(new Error('x'), { name: 'PasswordException' });
     const resultados = await analizarPdfs(

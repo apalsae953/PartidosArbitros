@@ -60,6 +60,15 @@ function ResultadoPdf({ resultado, seleccionado, onAlternar }) {
             {partido.categoria}
             {partido.designacion && <> · Nº {partido.designacion}</>}
           </span>
+          {resultado.partes && (
+            <span className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-500">
+              <Icono nombre="documento" className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+              <span className="truncate">{resultado.archivo}</span>
+              <span className="shrink-0">
+                · {resultado.parte} de {resultado.partes}
+              </span>
+            </span>
+          )}
           <Desglose desglose={desglose} />
           {duplicado && (
             <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">
@@ -124,6 +133,12 @@ export default function DialogoImportarPdf({ importacion, onConfirmar, onCerrar 
         </div>
       ) : (
         <>
+          {resultados.some((r) => r.partes) && (
+            <p className="mb-3 text-sm text-slate-600">
+              Se han encontrado {textoPartidos(resultados.filter((r) => r.ok).length)} en{' '}
+              {numArchivos === 1 ? 'el PDF' : `${numArchivos} PDF`}. Cada designación se añade como un partido distinto.
+            </p>
+          )}
           <ul className="space-y-2">
             {resultados.map((resultado) => (
               <ResultadoPdf

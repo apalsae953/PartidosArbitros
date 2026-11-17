@@ -76,6 +76,35 @@ function quitarProvincia(competicion) {
   return competicion.replace(/\s*\([^)]*\)\s*$/, '').trim();
 }
 
+const NUMERO_DESIGNACION = /Designaci[oó]n N\S*\s*:?\s*(\d{3,})/;
+
+// Un mismo PDF puede traer varias designaciones seguidas (por ejemplo, si se han unido varios archivos).
+// Todas las páginas de una designación llevan su número; las que no lo llevan (como el impreso de
+// liquidación de gastos) se quedan con la designación anterior.
+export function dividirEnDesignaciones(paginas) {
+  const grupos = [];
+  for (const pagina of paginas) {
+    const numero = normalizarTextoPdf(pagina).match(NUMERO_DESIGNACION)?.[1] || null;
+    const actual = grupos[grupos.length - 1];
+    if (!actual || (numero && actual.numero && numero !== actual.numero)) {
+      grupos.push({ numero, paginas: [pagina] });
+    } else {
+      actual.paginas.push(pagina);
+      if (!actual.numero) actual.numero = numero;
+    }
+  }
+  return grupos.map((grupo) => grupo.paginas);
+}
+
+// Lee todas las designaciones de un PDF. Devuelve una lectura por partido encontrado o,
+// si no hay ninguno, una sola con el motivo.
+export function interpretarDocumento(paginas) {
+  const lecturas = dividirEnDesignaciones(paginas).map(interpretarDesignacion);
+  const correctas = lecturas.filter((lectura) => lectura.ok);
+  if (correctas.length > 0) return correctas;
+  return [lecturas[0] || { ok: false, motivo: 'El PDF está vacío.' }];
+}
+
 export function interpretarDesignacion(paginas) {
   const textos = paginas.map(normalizarTextoPdf);
   const designacion = textos.find((t) => /Designaci[oó]n de /i.test(t) && /Con fecha \d/.test(t));
@@ -103,7 +132,7 @@ export function interpretarDesignacion(paginas) {
   const [, dia, mes, anio, hora, minutos] = fechaHora;
   const funcion = frase.match(/actuar[aá] como (.+?) entre los equipos/)?.[1].trim() || '';
   const campo = designacion.match(/tendr[aá] lugar en el campo (.+?) de [^.]+\./)?.[1].trim() || '';
-  const numero = designacion.match(/Designaci[oó]n N\S*\s*:?\s*(\d{3,})/)?.[1] || '';
+  const numero = designacion.match(NUMERO_DESIGNACION)?.[1] || '';
 
   // Liquidación del árbitro (tabla de la página de designación)
   const tabla = designacion.slice(Math.max(designacion.search(/Liquidaci[oó]n Euros/), 0));

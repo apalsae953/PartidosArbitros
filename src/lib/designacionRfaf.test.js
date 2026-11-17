@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { interpretarDesignacion, separarEquipos } from './designacionRfaf.js';
+import { dividirEnDesignaciones, interpretarDesignacion, interpretarDocumento, separarEquipos } from './designacionRfaf.js';
 
 // Textos con la misma forma que los extrae pdf.js de las designaciones reales.
 // Los nombres y teléfonos del equipo arbitral son inventados.
@@ -178,5 +178,38 @@ describe('separarEquipos', () => {
 
   it('devuelve null si no hay dos equipos', () => {
     expect(separarEquipos('C.D. VERA')).toBeNull();
+  });
+});
+
+describe('interpretarDocumento', () => {
+  const LIQUIDACION_GASTOS = 'LIQUIDACIÓN GASTOS PARTIDO Fecha Firma del árbitro';
+
+  it('separa un PDF con varias designaciones unidas', () => {
+    const paginas = [...ALEVIN, LIQUIDACION_GASTOS, ...CADETE_CON_ASISTENTES, LIQUIDACION_GASTOS];
+    expect(dividirEnDesignaciones(paginas).map((grupo) => grupo.length)).toEqual([3, 4]);
+
+    const lecturas = interpretarDocumento(paginas);
+    expect(lecturas.map((l) => [l.ok, l.partido.designacion, l.partido.local, l.partido.visitante])).toEqual([
+      [true, '2009504', 'C.D. CANTORIA 2017 F.C.', 'CLUB NATACION ALMERIA'],
+      [true, '2002159', 'C.D. VILLA DE ALBOX', 'U.C.D. LA CAÑADA AT'],
+    ]);
+  });
+
+  it('un PDF con una sola designación da un solo partido', () => {
+    const lecturas = interpretarDocumento(ALEVIN);
+    expect(lecturas).toHaveLength(1);
+    expect(lecturas[0]).toEqual(interpretarDesignacion(ALEVIN));
+  });
+
+  it('ignora las partes que no son designaciones si hay alguna correcta', () => {
+    const paginas = ['Portada sin datos Designación Nº: 999999', ...ALEVIN];
+    expect(interpretarDocumento(paginas).map((l) => l.partido.designacion)).toEqual(['2009504']);
+  });
+
+  it('si no hay ninguna designación, devuelve un único motivo', () => {
+    expect(interpretarDocumento(['Factura nº 123 Total 50,00'])).toEqual([
+      { ok: false, motivo: 'No parece un PDF de designación de la RFAF.' },
+    ]);
+    expect(interpretarDocumento([])).toEqual([{ ok: false, motivo: 'El PDF está vacío.' }]);
   });
 });

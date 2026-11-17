@@ -23,8 +23,9 @@ function cargarPdfjs() {
   return cargaPdfjs;
 }
 
-// Una designación tiene 4 páginas; no hace falta leer más
-const MAX_PAGINAS = 10;
+// Una designación ocupa unas 4 páginas; un PDF puede juntar varias, así que se leen hasta 200
+// (unas 50 designaciones) para no quedarse colgado con documentos enormes que no son designaciones
+const MAX_PAGINAS = 200;
 
 // Devuelve el texto de cada página del PDF
 export async function leerPaginasPdf(archivo) {
